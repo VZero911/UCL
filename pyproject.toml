@@ -17,6 +17,9 @@ classifiers = [
   "Topic :: Software Development :: Compilers",
 ]
 
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
 [project.scripts]
 uclc = "uclc.cli:main"
 

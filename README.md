@@ -38,6 +38,8 @@ python3 -m uclc.cli emit-ir examples/fib.ucl     # show the low-level IR
 python3 -m uclc.cli tokens  examples/hello.ucl   # dump the token stream
 ```
 
+More runnable programs: `examples/fizzbuzz.ucl`, `examples/factorial.ucl`, `examples/prime.ucl`.
+
 ## Status (v0.1)
 
 | Stage | State |
@@ -48,7 +50,7 @@ python3 -m uclc.cli tokens  examples/hello.ucl   # dump the token stream
 | Evaluator | ✅ reference tree-walking interpreter for the procedural subset |
 | Objects / AI ops | ⏳ parse + lower today; evaluation + native codegen on the roadmap |
 
-29 tests green (`python3 -m pytest tests/`). See [docs/ROADMAP.md](docs/ROADMAP.md).
+33 tests green (`make test` or `python3 -m pytest -q`). Runnable examples: `make examples`. Contributor guide: [CONTRIBUTING.md](CONTRIBUTING.md) · Changes: [CHANGELOG.md](CHANGELOG.md). See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Docs
 - [Language spec](docs/SPEC.md) · [Grammar (EBNF)](docs/GRAMMAR.ebnf) · [Roadmap](docs/ROADMAP.md) · [THECORE integration](docs/THECORE_INTEGRATION.md)

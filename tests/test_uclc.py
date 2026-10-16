@@ -193,3 +193,42 @@ def test_cli_version(capsys):
 def test_compile_source_helper():
     prog = compile_source("fn main() { }")
     assert isinstance(prog, A.Program)
+
+
+# ---- runnable examples (procedural subset) ---------------------------------
+def _run_example(name):
+    with open(_ex(name), "r", encoding="utf-8") as fh:
+        return _run_capture(fh.read())
+
+
+def test_example_fizzbuzz():
+    rc, out = _run_example("fizzbuzz.ucl")
+    assert rc == 0
+    assert out == [
+        "1", "2", "Fizz", "4", "Buzz", "Fizz", "7", "8", "Fizz", "Buzz",
+        "11", "Fizz", "13", "14", "FizzBuzz",
+    ]
+
+
+def test_example_factorial_recursive_matches_iterative():
+    rc, out = _run_example("factorial.ucl")
+    assert rc == 0 and len(out) == 12
+    assert out[0] == "fact 1 = 1 iter 1"
+    assert out[-1] == "fact 12 = 479001600 iter 479001600"
+    for line in out:  # recursive and iterative results agree on every row
+        rec, it = line.split(" = ")[1].split(" iter ")
+        assert rec == it
+
+
+def test_example_prime_below_50():
+    rc, out = _run_example("prime.ucl")
+    assert rc == 0
+    primes = [int(line.split()[1]) for line in out[:-1]]
+    assert primes == [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47]
+    assert out[-1] == "count 15"
+
+
+def test_cli_run_examples(capsys):
+    for name in ("fizzbuzz.ucl", "factorial.ucl", "prime.ucl"):
+        assert cli.main(["run", _ex(name)]) == 0
+    assert "FizzBuzz" in capsys.readouterr().out

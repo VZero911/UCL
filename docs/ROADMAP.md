@@ -6,7 +6,7 @@ evaluator; the phases below build it toward a production AI systems language.
 ## v0.1 — front-end + reference semantics ✅ (now)
 - Lexer, parser, three-address IR, tree-walking evaluator for the procedural subset.
 - `uclc` CLI: `run`, `check`, `ast`, `tokens`, `emit-ir`.
-- Examples + 29-test suite.
+- Examples (5 runnable) + 33-test suite.
 
 ## v0.2 — type system
 - Static type checking for scalars; function signature checking.
