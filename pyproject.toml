@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "uclc"
+version = "0.1.0"
+description = "UCL — Unified Code Language: a C++-inspired, AI-native low-level language and its reference compiler."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "V0", email = "vzero911@users.noreply.github.com" }]
+keywords = ["language", "compiler", "ai", "tensor", "systems", "ucl"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Topic :: Software Development :: Compilers",
+]
+
+[project.scripts]
+uclc = "uclc.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

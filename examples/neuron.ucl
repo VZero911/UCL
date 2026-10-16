@@ -1,0 +1,20 @@
+// neuron.ucl — shows UCL's AI-native primitives and C++-inspired objects.
+// NOTE: the tensor/weights/dot ops parse and lower to IR in v0, but are not yet
+// evaluable by the reference interpreter (see docs/ROADMAP.md). `uclc emit-ir`
+// and `uclc check` work on this file today; `uclc run` requires the AI backend.
+
+class Neuron {
+    bias: f32;
+    w: tensor<f32, [0]>;
+
+    fn forward(x: tensor<f32, [0]>) -> f32 {
+        return dot(w, x) + bias;
+    }
+}
+
+fn main() -> i32 {
+    let n: Neuron = Neuron();
+    let x: tensor<f32, [0]> = tensor(1.0, 2.0, 3.0);
+    print("activation:", n.forward(x));
+    return 0;
+}

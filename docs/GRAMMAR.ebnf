@@ -1,0 +1,40 @@
+(* UCL v0.1 grammar — EBNF. Matches src/uclc/parser.py. *)
+
+program     = { declaration } ;
+declaration = function | class ;
+
+function    = "fn" ident "(" [ params ] ")" [ "->" type ] block ;
+params      = param { "," param } ;
+param       = ident ":" type | type ident ;
+
+class       = "class" ident "{" { field | function } "}" ;
+field       = ( ident ":" type | type ident ) ";" ;
+
+block       = "{" { statement } "}" ;
+statement   = let | assign | return | if | while | block | exprStmt ;
+let         = "let" ident [ ":" type ] "=" expression ";" ;
+assign      = ident "=" expression ";" ;
+return      = "return" [ expression ] ";" ;
+if          = "if" expression block [ "else" ( block | if ) ] ;
+while       = "while" expression block ;
+exprStmt    = expression ";" ;
+
+(* precedence climbing: || < && < eq < rel < add < mul < unary < postfix *)
+expression  = logicOr ;
+logicOr     = logicAnd { "||" logicAnd } ;
+logicAnd    = equality { "&&" equality } ;
+equality    = relational { ( "==" | "!=" ) relational } ;
+relational  = additive { ( "<" | ">" | "<=" | ">=" ) additive } ;
+additive    = multiplicative { ( "+" | "-" ) multiplicative } ;
+multiplicative = unary { ( "*" | "/" | "%" ) unary } ;
+unary       = ( "-" | "!" ) unary | postfix ;
+postfix     = primary { "." ident [ "(" [ args ] ")" ] } ;
+primary     = int | float | string | "true" | "false"
+            | ident [ "(" [ args ] ")" ]
+            | "(" expression ")" ;
+args        = expression { "," expression } ;
+
+type        = ( typeName | ident ) [ "<" { anyToken } ">" ] ;
+typeName    = "i8"|"i16"|"i32"|"i64"|"u8"|"u16"|"u32"|"u64"
+            | "f16"|"f32"|"f64"|"bool"|"void"|"str"|"ptr"
+            | "tensor"|"weights"|"tokenstream"|"graph"|"quant" ;

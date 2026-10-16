@@ -1,0 +1,5 @@
+// hello.ucl — the smallest UCL program.
+fn main() -> i32 {
+    print("Hello, V0 — Unified Code Language");
+    return 0;
+}
