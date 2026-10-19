@@ -12,7 +12,15 @@ All notable changes to UCL are recorded here. The format follows
 - `CONTRIBUTING.md` covering setup, the `uclc` CLI, project layout and how to add examples.
 - Runnable examples: `fizzbuzz.ucl` (loops, modulo, else-if), `factorial.ucl` (recursive and iterative), `prime.ucl` (trial-division primality).
 - `test` optional extra (`pip install -e ".[test]"`); no runtime dependencies added.
-- Tests for the new examples (33 tests total).
+
+## [0.2.0] - 2026-10-19
+
+### Added
+- **Static type system** (`src/uclc/types.py`): `UclType` hierarchy with `IntType`, `FloatType`, `BoolType`, `StrType`, `VoidType`, `PtrType`, `TensorType`, `FnType`, `ClassType`. Type parsing via `parse_type()`, numeric promotion rules, and assignability checks.
+- **Static type checker** (`src/uclc/checker.py`): walks the AST with scoped type environments. Checks let bindings, function params and return types, binary/unary ops, function call arity and arg types, assignments, class field/method access, and AI-native builtins. Collects `TypeDiag` diagnostics with source spans.
+- **AST span info**: `Node` base class now carries `line` and `col`; the parser populates them from token positions on every node.
+- **`uclc typecheck`** CLI command: reports diagnostics with `file:line:col: severity: message` format; exits 0 on success, 1 on errors.
+- 58 new tests in `tests/test_types.py` (91 total): type representations, promotion, assignability, checker on all examples (incl. `neuron.ucl`), error detection (wrong return type, arity mismatch, undefined variables, type mismatches), span info, and CLI integration.
 
 ## [0.1.0] - 2026-10-17
 

@@ -1,0 +1,23 @@
+// arrays.ucl — demonstrates arrays, for..in loops, indexing, and builtins.
+
+fn main() -> i32 {
+    let nums = [10, 20, 30, 40, 50];
+    let sum = 0;
+
+    for x in nums {
+        sum = sum + x;
+    }
+    print("sum:", sum);
+
+    print("first:", nums[0]);
+    print("last:", nums[4]);
+    print("length:", len(nums));
+
+    let squares = [];
+    for i in range(5) {
+        push(squares, i * i);
+    }
+    print("squares:", squares[0], squares[1], squares[2], squares[3], squares[4]);
+
+    return 0;
+}

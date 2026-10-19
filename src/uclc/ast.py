@@ -6,7 +6,8 @@ from typing import List, Optional
 
 
 class Node:
-    pass
+    line: int = 0
+    col: int = 0
 
 
 # ---- expressions -----------------------------------------------------------
@@ -107,6 +108,24 @@ class If(Node):
 class While(Node):
     cond: Node
     body: Block
+
+
+@dataclass
+class ForIn(Node):
+    var_name: str
+    iterable: Node
+    body: Block
+
+
+@dataclass
+class ArrayLit(Node):
+    elements: List[Node] = field(default_factory=list)
+
+
+@dataclass
+class Index(Node):
+    obj: Node
+    index: Node
 
 
 # ---- declarations ----------------------------------------------------------

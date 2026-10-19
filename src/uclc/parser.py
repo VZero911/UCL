@@ -64,6 +64,12 @@ class Parser:
             return True
         return False
 
+    @staticmethod
+    def _span(node: ast.Node, tok: Token) -> ast.Node:
+        node.line = tok.line
+        node.col = tok.col
+        return node
+
     # -- entry --------------------------------------------------------------
     def parse(self) -> ast.Program:
         decls: List[ast.Node] = []
@@ -75,7 +81,10 @@ class Parser:
             else:
                 t = self._peek()
                 raise ParseError(f"expected 'fn' or 'class' at top level, got {t.type.name} at line {t.line}")
-        return ast.Program(decls)
+        prog = ast.Program(decls)
+        prog.line = 1
+        prog.col = 1
+        return prog
 
     # -- type ---------------------------------------------------------------
     def _type(self) -> str:
@@ -101,7 +110,7 @@ class Parser:
 
     # -- declarations -------------------------------------------------------
     def _fn(self) -> ast.Fn:
-        self._expect(T.FN)
+        tok = self._expect(T.FN)
         name = self._expect(T.IDENT).value
         self._expect(T.LPAREN)
         params: List[ast.Param] = []
@@ -114,21 +123,23 @@ class Parser:
         if self._match(T.ARROW):
             ret = self._type()
         body = self._block()
-        return ast.Fn(name, params, ret, body)
+        return self._span(ast.Fn(name, params, ret, body), tok)
 
     def _param(self) -> ast.Param:
         # accepts `name: type` or C-style `type name`
         if self._at(T.IDENT) and self._peek(1).type == T.COLON:
-            name = self._advance().value
+            tok = self._advance()
+            name = tok.value
             self._expect(T.COLON)
             ty = self._type()
-            return ast.Param(name, ty)
+            return self._span(ast.Param(name, ty), tok)
+        tok = self._peek()
         ty = self._type()
         name = self._expect(T.IDENT).value
-        return ast.Param(name, ty)
+        return self._span(ast.Param(name, ty), tok)
 
     def _class(self) -> ast.Class:
-        self._expect(T.CLASS)
+        tok = self._expect(T.CLASS)
         name = self._expect(T.IDENT).value
         self._expect(T.LBRACE)
         fields: List[ast.Field] = []
@@ -138,6 +149,7 @@ class Parser:
                 methods.append(self._fn())
             else:
                 # field: `type name;` or `name: type;`
+                ftok = self._peek()
                 if self._at(T.IDENT) and self._peek(1).type == T.COLON:
                     fname = self._advance().value
                     self._expect(T.COLON)
@@ -146,46 +158,51 @@ class Parser:
                     fty = self._type()
                     fname = self._expect(T.IDENT).value
                 self._expect(T.SEMI)
-                fields.append(ast.Field(fname, fty))
+                fields.append(self._span(ast.Field(fname, fty), ftok))
         self._expect(T.RBRACE)
-        return ast.Class(name, fields, methods)
+        return self._span(ast.Class(name, fields, methods), tok)
 
     # -- statements ---------------------------------------------------------
     def _block(self) -> ast.Block:
-        self._expect(T.LBRACE)
+        tok = self._expect(T.LBRACE)
         stmts: List[ast.Node] = []
         while not self._at(T.RBRACE) and not self._at(T.EOF):
             stmts.append(self._stmt())
         self._expect(T.RBRACE)
-        return ast.Block(stmts)
+        return self._span(ast.Block(stmts), tok)
 
     def _stmt(self) -> ast.Node:
         if self._at(T.LET):
             return self._let()
         if self._at(T.RETURN):
-            self._advance()
+            tok = self._advance()
             val = None if self._at(T.SEMI) else self._expr()
             self._expect(T.SEMI)
-            return ast.Return(val)
+            return self._span(ast.Return(val), tok)
         if self._at(T.IF):
             return self._if()
         if self._at(T.WHILE):
             return self._while()
+        if self._at(T.FOR):
+            return self._for_in()
         if self._at(T.LBRACE):
             return self._block()
         # assignment or expression statement
         if self._at(T.IDENT) and self._peek(1).type == T.ASSIGN:
-            name = self._advance().value
+            tok = self._advance()
             self._expect(T.ASSIGN)
             val = self._expr()
             self._expect(T.SEMI)
-            return ast.Assign(name, val)
+            return self._span(ast.Assign(tok.value, val), tok)
         expr = self._expr()
         self._expect(T.SEMI)
-        return ast.ExprStmt(expr)
+        node = ast.ExprStmt(expr)
+        node.line = expr.line
+        node.col = expr.col
+        return node
 
     def _let(self) -> ast.Let:
-        self._expect(T.LET)
+        tok = self._expect(T.LET)
         name = self._expect(T.IDENT).value
         ty: Optional[str] = None
         if self._match(T.COLON):
@@ -193,22 +210,36 @@ class Parser:
         self._expect(T.ASSIGN)
         val = self._expr()
         self._expect(T.SEMI)
-        return ast.Let(name, ty, val)
+        return self._span(ast.Let(name, ty, val), tok)
 
     def _if(self) -> ast.If:
-        self._expect(T.IF)
+        tok = self._expect(T.IF)
         cond = self._expr()
         then = self._block()
         otherwise: Optional[ast.Block] = None
         if self._match(T.ELSE):
-            otherwise = self._block() if self._at(T.LBRACE) else ast.Block([self._if()])
-        return ast.If(cond, then, otherwise)
+            if self._at(T.LBRACE):
+                otherwise = self._block()
+            else:
+                inner = self._if()
+                otherwise = ast.Block([inner])
+                otherwise.line = inner.line
+                otherwise.col = inner.col
+        return self._span(ast.If(cond, then, otherwise), tok)
 
     def _while(self) -> ast.While:
-        self._expect(T.WHILE)
+        tok = self._expect(T.WHILE)
         cond = self._expr()
         body = self._block()
-        return ast.While(cond, body)
+        return self._span(ast.While(cond, body), tok)
+
+    def _for_in(self) -> ast.ForIn:
+        tok = self._expect(T.FOR)
+        var_name = self._expect(T.IDENT).value
+        self._expect(T.IN)
+        iterable = self._expr()
+        body = self._block()
+        return self._span(ast.ForIn(var_name, iterable, body), tok)
 
     # -- expressions (precedence climbing) ----------------------------------
     def _expr(self, min_prec: int = 0) -> ast.Node:
@@ -218,53 +249,67 @@ class Parser:
             prec = _PREC.get(tt)
             if prec is None or prec < min_prec:
                 break
-            self._advance()
+            op_tok = self._advance()
             right = self._expr(prec + 1)
-            left = ast.Binary(_OP_TEXT[tt], left, right)
+            left = self._span(ast.Binary(_OP_TEXT[tt], left, right), op_tok)
         return left
 
     def _unary(self) -> ast.Node:
         if self._at(T.MINUS) or self._at(T.NOT):
-            op = self._advance().value
-            return ast.Unary(op, self._unary())
+            tok = self._advance()
+            return self._span(ast.Unary(tok.value, self._unary()), tok)
         return self._postfix()
 
     def _postfix(self) -> ast.Node:
-        # member access and method calls: obj.field / obj.method(args) / chained
         node = self._primary()
-        while self._at(T.DOT):
-            self._advance()
-            name = self._expect(T.IDENT).value
-            if self._at(T.LPAREN):
-                self._advance()
-                args: List[ast.Node] = []
-                if not self._at(T.RPAREN):
-                    args.append(self._expr())
-                    while self._match(T.COMMA):
+        while self._at(T.DOT) or self._at(T.LBRACKET):
+            if self._at(T.DOT):
+                dot_tok = self._advance()
+                name = self._expect(T.IDENT).value
+                if self._at(T.LPAREN):
+                    self._advance()
+                    args: List[ast.Node] = []
+                    if not self._at(T.RPAREN):
                         args.append(self._expr())
-                self._expect(T.RPAREN)
-                node = ast.MethodCall(node, name, args)
+                        while self._match(T.COMMA):
+                            args.append(self._expr())
+                    self._expect(T.RPAREN)
+                    node = self._span(ast.MethodCall(node, name, args), dot_tok)
+                else:
+                    node = self._span(ast.Member(node, name), dot_tok)
             else:
-                node = ast.Member(node, name)
+                br_tok = self._advance()
+                idx = self._expr()
+                self._expect(T.RBRACKET)
+                node = self._span(ast.Index(node, idx), br_tok)
         return node
 
     def _primary(self) -> ast.Node:
         t = self._peek()
         if t.type == T.INT:
-            self._advance(); return ast.IntLit(t.value)
+            self._advance(); return self._span(ast.IntLit(t.value), t)
         if t.type == T.FLOAT:
-            self._advance(); return ast.FloatLit(t.value)
+            self._advance(); return self._span(ast.FloatLit(t.value), t)
         if t.type == T.STRING:
-            self._advance(); return ast.StrLit(t.value)
+            self._advance(); return self._span(ast.StrLit(t.value), t)
         if t.type == T.TRUE:
-            self._advance(); return ast.BoolLit(True)
+            self._advance(); return self._span(ast.BoolLit(True), t)
         if t.type == T.FALSE:
-            self._advance(); return ast.BoolLit(False)
+            self._advance(); return self._span(ast.BoolLit(False), t)
         if t.type == T.LPAREN:
             self._advance()
             e = self._expr()
             self._expect(T.RPAREN)
             return e
+        if t.type == T.LBRACKET:
+            self._advance()
+            elems: List[ast.Node] = []
+            if not self._at(T.RBRACKET):
+                elems.append(self._expr())
+                while self._match(T.COMMA):
+                    elems.append(self._expr())
+            self._expect(T.RBRACKET)
+            return self._span(ast.ArrayLit(elems), t)
         if t.type in (T.IDENT, T.TYPE):
             self._advance()
             if self._at(T.LPAREN):
@@ -275,8 +320,8 @@ class Parser:
                     while self._match(T.COMMA):
                         args.append(self._expr())
                 self._expect(T.RPAREN)
-                return ast.Call(t.value, args)
-            return ast.Var(t.value)
+                return self._span(ast.Call(t.value, args), t)
+            return self._span(ast.Var(t.value), t)
         raise ParseError(f"unexpected token {t.type.name} ({t.value!r}) at line {t.line}:{t.col}")
 
 

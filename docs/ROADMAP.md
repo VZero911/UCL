@@ -8,10 +8,14 @@ evaluator; the phases below build it toward a production AI systems language.
 - `uclc` CLI: `run`, `check`, `ast`, `tokens`, `emit-ir`.
 - Examples (5 runnable) + 33-test suite.
 
-## v0.2 — type system
-- Static type checking for scalars; function signature checking.
-- Tensor shape + dtype checking (`tensor<f32,[N,M]>` enforced).
-- Diagnostics with source spans.
+## v0.2 — type system ✅
+- Static type checking for scalars, classes, AI-native types; function signature checking.
+- Type representations (`IntType`, `FloatType`, `BoolType`, `StrType`, `VoidType`, `PtrType`, `TensorType`, `FnType`, `ClassType`).
+- Numeric promotion (int widening, int-to-float) and assignability rules.
+- Scoped type environments; class field/method access checking.
+- Diagnostics with source spans (`file:line:col: severity: message`).
+- `uclc typecheck` CLI command; 58 new tests (91 total).
+- Tensor shape + dtype enforcement deferred to v0.3 (generic args are parsed but skipped).
 
 ## v0.3 — object model execution
 - Evaluate classes/instances (fields, methods, `self`), construction.

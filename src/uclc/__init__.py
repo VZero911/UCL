@@ -10,9 +10,10 @@ from .lexer import tokenize
 from .parser import parse
 from .ir import lower
 from .vm import run, Interpreter
+from .checker import check
 
-__version__ = "0.1.0"
-__all__ = ["tokenize", "parse", "lower", "run", "Interpreter", "__version__"]
+__version__ = "0.2.0"
+__all__ = ["tokenize", "parse", "lower", "run", "check", "Interpreter", "__version__"]
 
 
 def compile_source(src: str):

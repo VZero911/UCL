@@ -112,6 +112,22 @@ class Lowerer:
             self._block(f, s.body)
             f.emit(f"jmp {l_top}")
             f.emit(f"{l_end}:")
+        elif isinstance(s, ast.ForIn):
+            arr = self._expr(f, s.iterable)
+            idx = f.tmp(); f.emit(f"{idx} = const 0")
+            ln = f.tmp(); f.emit(f"{ln} = call len({arr})")
+            l_top = f.label(); l_end = f.label()
+            f.emit(f"{l_top}:")
+            cmp = f.tmp(); f.emit(f"{cmp} = < {idx}, {ln}")
+            f.emit(f"jmpf {cmp}, {l_end}")
+            elem = f.tmp(); f.emit(f"{elem} = index {arr}, {idx}")
+            f.emit(f"store {s.var_name}, {elem}")
+            self._block(f, s.body)
+            inc = f.tmp(); one = f.tmp()
+            f.emit(f"{one} = const 1"); f.emit(f"{inc} = + {idx}, {one}")
+            f.emit(f"store {idx}, {inc}"); f.emit(f"{idx} = load {idx}")
+            f.emit(f"jmp {l_top}")
+            f.emit(f"{l_end}:")
         else:  # pragma: no cover - defensive
             raise TypeError(f"cannot lower statement {type(s).__name__}")
 
@@ -146,6 +162,17 @@ class Lowerer:
             o = self._expr(f, e.obj)
             t = f.tmp()
             f.emit(f"{t} = getfield {o}, {e.name}")
+            return t
+        if isinstance(e, ast.ArrayLit):
+            elems = [self._expr(f, el) for el in e.elements]
+            t = f.tmp()
+            f.emit(f"{t} = array [{', '.join(elems)}]")
+            return t
+        if isinstance(e, ast.Index):
+            o = self._expr(f, e.obj)
+            i = self._expr(f, e.index)
+            t = f.tmp()
+            f.emit(f"{t} = index {o}, {i}")
             return t
         if isinstance(e, ast.MethodCall):
             o = self._expr(f, e.obj)

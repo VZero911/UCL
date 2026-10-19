@@ -23,6 +23,8 @@ class T(Enum):
     IF = auto()
     ELSE = auto()
     WHILE = auto()
+    FOR = auto()
+    IN = auto()
     TRUE = auto()
     FALSE = auto()
     CLASS = auto()
@@ -65,6 +67,8 @@ KEYWORDS = {
     "if": T.IF,
     "else": T.ELSE,
     "while": T.WHILE,
+    "for": T.FOR,
+    "in": T.IN,
     "true": T.TRUE,
     "false": T.FALSE,
     "class": T.CLASS,

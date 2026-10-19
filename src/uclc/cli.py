@@ -1,11 +1,12 @@
 """uclc command-line driver.
 
 Usage:
-    uclc run     <file.ucl>     run the program (calls main)
-    uclc tokens  <file.ucl>     dump the token stream
-    uclc ast     <file.ucl>     dump the parsed AST
-    uclc emit-ir <file.ucl>     lower to textual low-level IR
-    uclc check   <file.ucl>     parse only; report OK or the first error
+    uclc run       <file.ucl>     run the program (calls main)
+    uclc tokens    <file.ucl>     dump the token stream
+    uclc ast       <file.ucl>     dump the parsed AST
+    uclc emit-ir   <file.ucl>     lower to textual low-level IR
+    uclc check     <file.ucl>     parse only; report OK or the first error
+    uclc typecheck <file.ucl>     static type check; report diagnostics
 """
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ from .lexer import tokenize
 from .parser import parse
 from .ir import lower
 from .vm import Interpreter
+from .checker import check
 
 
 def _read(path: str) -> str:
@@ -32,10 +34,13 @@ def main(argv: List[str] | None = None) -> int:
     if argv[0] in ("-v", "--version", "version"):
         print(f"uclc {__version__}")
         return 0
-    if len(argv) < 2:
+    if len(argv) == 1 and argv[0].endswith(".ucl"):
+        cmd, path = "run", argv[0]
+    elif len(argv) < 2:
         print("error: missing <file.ucl>", file=sys.stderr)
         return 2
-    cmd, path = argv[0], argv[1]
+    else:
+        cmd, path = argv[0], argv[1]
     try:
         src = _read(path)
     except OSError as e:
@@ -50,6 +55,21 @@ def main(argv: List[str] | None = None) -> int:
         if cmd == "check":
             parse(tokenize(src))
             print("OK")
+            return 0
+        if cmd == "typecheck":
+            prog = parse(tokenize(src))
+            diags = check(prog)
+            errors = [d for d in diags if d.severity == "error"]
+            warnings = [d for d in diags if d.severity == "warning"]
+            for d in diags:
+                print(f"{path}:{d}", file=sys.stderr)
+            if errors:
+                print(f"{len(errors)} error(s), {len(warnings)} warning(s)", file=sys.stderr)
+                return 1
+            if warnings:
+                print(f"OK ({len(warnings)} warning(s))")
+            else:
+                print("OK")
             return 0
         if cmd == "ast":
             prog = parse(tokenize(src))
