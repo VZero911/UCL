@@ -6,6 +6,90 @@ All notable changes to UCL are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-19
+
+### Added
+- **Register allocator for native codegen**: linear scan register allocation with spill support.
+- `regalloc.py` module (317 lines): `RegisterAllocation` class with interference graph and coloring.
+- Spill slots on stack for register pressure beyond available physical registers.
+- Integrated into `codegen.py` — optional `regalloc` parameter for `FunctionCompiler`.
+- 50 new tests (244 total): register allocation unit tests, spill scenarios, complex expression chains.
+
+## [0.9.0] - 2026-10-19
+
+### Added
+- **Function calls in native codegen**: `call funcname(args...)` compiles to x86-64 `call` instruction with System V AMD64 ABI parameter passing (rdi, rsi, rdx, rcx, r8, r9 for the first 6 args).
+- **Recursive calls**: direct and mutual recursion work correctly (callee-saved rbp, proper stack frames).
+- **Nested calls**: `f(g(x))` chains work — inner call's return value in rax feeds the outer call's argument.
+- **Multi-function compilation**: all functions get their own labels; non-main functions emit proper `ret`.
+- **No-arg functions**: zero-parameter functions compile and call correctly.
+- **Functions with loops**: callees can use while loops, if/else, and all existing codegen features.
+- 10 new native codegen function-call tests (194 total): simple call, return value, multiple args, fibonacci recursion, nested calls, function with print, no-arg, mutual recursion, call chain, function with loop.
+
+## [0.8.0] - 2026-10-19
+
+### Added
+- **String support in native codegen**: string literals compile to ELF data section.
+- **String print**: `print(s)` writes string data + newline via write(2) syscall.
+- **String concatenation**: `s1 + s2` concatenates strings in a stack buffer.
+- **String len**: `len(s)` returns the byte length of a string.
+- **Escape sequences**: `\n`, `\t`, `\\` in string literals.
+- **StringTable**: intern-based deduplication of string constants.
+- Strings represented as (pointer, length) pairs on the stack — no null terminator, no GC.
+- **String truthiness**: strings used as conditions (if/while) test length, not pointer — empty strings are falsy.
+- 11 new native codegen string tests (184 total across both test suites).
+
+## [0.7.0] - 2026-10-19
+
+### Added
+- **Native x86-64 codegen**: `uclc compile <file.ucl>` produces a standalone static ELF executable.
+- **Minimal ELF builder**: generates valid ELF64 headers with a single PT_LOAD segment (~200-1.5K bytes output).
+- **Stack-based register allocation**: all temporaries and locals live on the stack (correctness-first design).
+- **Supported operations**: const (int), load/store, binary (`+`, `-`, `*`, `/`, `%`, `==`, `!=`, `<`, `>`, `<=`, `>=`), unary (`neg`, `not`), while loops, if/else, `ret`.
+- **Native print**: integer-to-string conversion + write(2) syscall, handles negative numbers and zero.
+- **codegen.py module**: `X86Emitter`, `FunctionCompiler`, `compile_to_elf()`, `compile_source_to_elf()`.
+- 11 new native codegen tests (145 total): return values, arithmetic, division/modulo, negative numbers, while loops, if/else, all comparison operators, zero, large numbers, ELF size check.
+
+## [0.6.0] - 2026-10-19
+
+### Added
+- **Pattern matching**: `match expr { case pattern -> stmt; }` with first-match semantics.
+- **Fat arrow syntax**: `match expr { pattern => stmt; }` — arms without the `case` keyword, using `=>`. Both `case pattern ->` and `pattern =>` syntaxes supported.
+- **Match as expression**: `let x = match expr { pattern => value, ... };` — match evaluates to the first matching arm's value, usable anywhere an expression is expected.
+- **Literal patterns**: match on int, float, string, bool values (including negative numbers).
+- **Wildcard pattern**: `_` matches anything.
+- **Variable binding**: `case n -> ...` captures the matched value into a new variable.
+- **Guard clauses**: `case n if n > 10 -> ...` adds a boolean condition to any case.
+- **Array destructuring**: `case [x, y] -> ...` matches arrays by length and binds elements.
+- **Tuple destructuring**: `case (a, b) -> ...` matches arrays with parenthesized syntax.
+- **Rest pattern**: `case [first, ...rest] -> ...` binds remaining elements. Supports `[first, ...middle, last]`.
+- **Map destructuring**: `case {"key": v} -> ...` matches maps by key presence and binds values.
+- New tokens: `FAT_ARROW` (`=>`), `DOTDOTDOT` (`...`).
+- IR lowering for Match, MatchExpr, TuplePattern, and RestPattern.
+- Type checker support for Match and MatchExpr nodes.
+- `pattern_match.ucl` example demonstrating all pattern matching features.
+- 41 tests for pattern matching (173 total with native codegen): literal int/string/bool, wildcard, variable binding, guards, tuple destructuring, rest patterns, match expression, fat arrow syntax, nested match, IR lowering.
+
+## [0.5.0] - 2026-10-19
+
+### Added
+- **Closures / lambdas**: first-class anonymous functions with lexical capture. Expression body `|x| -> x * 2` and block body `|x| { return x * 2; }`. Multi-param `|a, b| -> a + b`. Zero-param `|| -> 42`.
+- **Nested lambdas**: closures capture their enclosing scope, enabling factory patterns like `|n| -> |x| -> x + n`.
+- **Higher-order functions**: lambdas can be passed as arguments and called from other lambdas.
+- **`map_arr(arr, fn)`**: transform each element of an array with a lambda.
+- **`filter_arr(arr, fn)`**: keep elements where the lambda returns truthy.
+- `closures.ucl` example demonstrating all closure features.
+- 10 new tests (122 total): basic lambda, multi-param, closure capture, block body, nested, higher-order, map_arr, filter_arr, chain.
+
+## [0.4.0] - 2026-10-19
+
+### Added
+- **break/continue**: full loop control flow in both `while` and `for..in` loops, including nested loops. IR lowering emits correct jump targets.
+- **Hash maps**: `map(k1, v1, ...)` constructor, `get(m, k [, default])`, `set(m, k, v)`, `keys(m)`, `values(m)`, `has_key(m, k)`, `remove(m, k)`. Map indexing via `m["key"]`.
+- `len()` now works on maps (returns key count).
+- `break_continue.ucl` and `maps.ucl` examples.
+- 11 new tests (112 total): 5 break/continue + 6 map tests.
+
 ## [0.3.0] - 2026-10-19
 
 ### Added

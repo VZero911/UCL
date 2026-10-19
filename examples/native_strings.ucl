@@ -1,0 +1,15 @@
+fn main() {
+    let greeting = "Hello";
+    let name = "World";
+    let space = " ";
+    let msg = greeting + space + name;
+    print(msg);
+    print(len(msg));
+
+    let empty = "";
+    let full = "UCL v0.8 strings work!";
+    print(full);
+    print(len(full));
+
+    return 0;
+}

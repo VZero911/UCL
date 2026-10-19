@@ -28,6 +28,11 @@ class T(Enum):
     TRUE = auto()
     FALSE = auto()
     CLASS = auto()
+    BREAK = auto()
+    CONTINUE = auto()
+    MATCH = auto()
+    CASE = auto()
+    UNDERSCORE = auto()  # _ (wildcard pattern)
     # type keywords (incl. AI-native primitives)
     TYPE = auto()
     # punctuation / operators
@@ -41,12 +46,15 @@ class T(Enum):
     SEMI = auto()
     COLON = auto()
     ARROW = auto()       # ->
+    FAT_ARROW = auto()   # =>
+    DOTDOTDOT = auto()   # ...
     ASSIGN = auto()      # =
     PLUS = auto()
     MINUS = auto()
     STAR = auto()
     SLASH = auto()
     PERCENT = auto()
+    PIPE = auto()        # |
     LT = auto()
     GT = auto()
     LE = auto()
@@ -72,6 +80,10 @@ KEYWORDS = {
     "true": T.TRUE,
     "false": T.FALSE,
     "class": T.CLASS,
+    "break": T.BREAK,
+    "continue": T.CONTINUE,
+    "match": T.MATCH,
+    "case": T.CASE,
 }
 
 # Built-in type names. The AI-native primitives are what make UCL "unified for

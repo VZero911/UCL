@@ -5,6 +5,7 @@ Usage:
     uclc tokens    <file.ucl>     dump the token stream
     uclc ast       <file.ucl>     dump the parsed AST
     uclc emit-ir   <file.ucl>     lower to textual low-level IR
+    uclc compile   <file.ucl>     compile to native x86-64 ELF (writes a.out)
     uclc check     <file.ucl>     parse only; report OK or the first error
     uclc typecheck <file.ucl>     static type check; report diagnostics
 """
@@ -19,6 +20,7 @@ from .parser import parse
 from .ir import lower
 from .vm import Interpreter
 from .checker import check
+from .codegen import compile_source_to_elf
 
 
 def _read(path: str) -> str:
@@ -78,6 +80,16 @@ def main(argv: List[str] | None = None) -> int:
             return 0
         if cmd == "emit-ir":
             print(lower(parse(tokenize(src))))
+            return 0
+        if cmd == "compile":
+            elf = compile_source_to_elf(src)
+            out_path = path.rsplit(".", 1)[0] if "." in path else path
+            out_path = out_path + ".out" if not out_path.endswith(".out") else out_path
+            import os
+            with open(out_path, "wb") as fh:
+                fh.write(elf)
+            os.chmod(out_path, 0o755)
+            print(f"compiled → {out_path} ({len(elf)} bytes)")
             return 0
         if cmd == "run":
             prog = parse(tokenize(src))

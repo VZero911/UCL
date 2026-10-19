@@ -21,6 +21,14 @@ class _Return(Exception):
         self.value = value
 
 
+class _Break(Exception):
+    pass
+
+
+class _Continue(Exception):
+    pass
+
+
 class Env:
     def __init__(self, parent: Optional["Env"] = None):
         self.vars: Dict[str, Any] = {}
@@ -45,6 +53,16 @@ class Env:
 
     def define(self, name: str, value: Any) -> None:
         self.vars[name] = value
+
+
+class UCLLambda:
+    def __init__(self, params: list, body, env: "Env"):
+        self.params = params
+        self.body = body
+        self.env = env
+
+    def __repr__(self) -> str:
+        return f"<lambda({', '.join(self.params)})>"
 
 
 class UCLInstance:
@@ -75,6 +93,20 @@ class Interpreter:
         return self._call(self.funcs[entry], [])
 
     # -- calls --------------------------------------------------------------
+    def _call_lambda(self, lam: UCLLambda, args: List[Any]) -> Any:
+        if len(args) != len(lam.params):
+            raise UCLRuntimeError(f"lambda expected {len(lam.params)} args, got {len(args)}")
+        env = Env(lam.env)
+        for name, val in zip(lam.params, args):
+            env.define(name, val)
+        if isinstance(lam.body, ast.Block):
+            try:
+                self._exec_block(lam.body, env)
+            except _Return as r:
+                return r.value
+            return None
+        return self._eval(lam.body, env)
+
     def _call(self, fn: ast.Fn, args: List[Any]) -> Any:
         if len(args) != len(fn.params):
             raise UCLRuntimeError(f"{fn.name}: expected {len(fn.params)} args, got {len(args)}")
@@ -111,7 +143,12 @@ class Interpreter:
                 self._exec_block(s.otherwise, env)
         elif isinstance(s, ast.While):
             while self._truthy(self._eval(s.cond, env)):
-                self._exec_block(s.body, env)
+                try:
+                    self._exec_block(s.body, env)
+                except _Break:
+                    break
+                except _Continue:
+                    continue
         elif isinstance(s, ast.ForIn):
             iterable = self._eval(s.iterable, env)
             if not hasattr(iterable, "__iter__"):
@@ -119,8 +156,30 @@ class Interpreter:
             for item in iterable:
                 inner = Env(env)
                 inner.define(s.var_name, item)
-                for stmt in s.body.stmts:
-                    self._exec(stmt, inner)
+                try:
+                    for stmt in s.body.stmts:
+                        self._exec(stmt, inner)
+                except _Break:
+                    break
+                except _Continue:
+                    continue
+        elif isinstance(s, ast.Break):
+            raise _Break()
+        elif isinstance(s, ast.Continue):
+            raise _Continue()
+        elif isinstance(s, ast.Match):
+            val = self._eval(s.expr, env)
+            for case in s.cases:
+                bindings: Dict[str, Any] = {}
+                if self._match_pattern(case.pattern, val, bindings):
+                    case_env = Env(env)
+                    for k, v in bindings.items():
+                        case_env.define(k, v)
+                    if case.guard is not None:
+                        if not self._truthy(self._eval(case.guard, case_env)):
+                            continue
+                    self._exec(case.body, case_env)
+                    return
         else:  # pragma: no cover
             raise UCLRuntimeError(f"cannot execute {type(s).__name__}")
 
@@ -155,6 +214,10 @@ class Interpreter:
         if isinstance(e, ast.Index):
             obj = self._eval(e.obj, env)
             idx = self._eval(e.index, env)
+            if isinstance(obj, dict):
+                if idx not in obj:
+                    raise UCLRuntimeError(f"key {idx!r} not found in map")
+                return obj[idx]
             if not isinstance(idx, int):
                 raise UCLRuntimeError(f"array index must be integer, got {type(idx).__name__}")
             if not isinstance(obj, (list, str)):
@@ -162,6 +225,21 @@ class Interpreter:
             if idx < 0 or idx >= len(obj):
                 raise UCLRuntimeError(f"index {idx} out of bounds (length {len(obj)})")
             return obj[idx]
+        if isinstance(e, ast.MatchExpr):
+            val = self._eval(e.expr, env)
+            for arm in e.arms:
+                bindings: Dict[str, Any] = {}
+                if self._match_pattern(arm.pattern, val, bindings):
+                    arm_env = Env(env)
+                    for k, v in bindings.items():
+                        arm_env.define(k, v)
+                    if arm.guard is not None:
+                        if not self._truthy(self._eval(arm.guard, arm_env)):
+                            continue
+                    return self._eval(arm.body, arm_env)
+            return None
+        if isinstance(e, ast.Lambda):
+            return UCLLambda(e.params, e.body, env)
         if isinstance(e, ast.MethodCall):
             obj = self._eval(e.obj, env)
             if isinstance(obj, UCLInstance):
@@ -232,8 +310,8 @@ class Interpreter:
             if len(e.args) != 1:
                 raise UCLRuntimeError("len() takes exactly one argument")
             v = self._eval(e.args[0], env)
-            if not isinstance(v, (list, str)):
-                raise UCLRuntimeError(f"len() requires array or str, got {type(v).__name__}")
+            if not isinstance(v, (list, str, dict)):
+                raise UCLRuntimeError(f"len() requires array, str or map, got {type(v).__name__}")
             return len(v)
         if e.callee == "range":
             args = [self._eval(a, env) for a in e.args]
@@ -335,9 +413,164 @@ class Interpreter:
         if e.callee in self.funcs:
             args = [self._eval(a, env) for a in e.args]
             return self._call(self.funcs[e.callee], args)
+        if e.callee == "map":
+            args = [self._eval(a, env) for a in e.args]
+            if len(args) % 2 != 0:
+                raise UCLRuntimeError("map() takes an even number of args: map(k1, v1, k2, v2, ...)")
+            m: dict = {}
+            for i in range(0, len(args), 2):
+                m[args[i]] = args[i + 1]
+            return m
+        if e.callee == "get":
+            if len(e.args) not in (2, 3):
+                raise UCLRuntimeError("get(map, key [, default]) takes 2-3 arguments")
+            args = [self._eval(a, env) for a in e.args]
+            if not isinstance(args[0], dict):
+                raise UCLRuntimeError(f"get() requires map, got {type(args[0]).__name__}")
+            default = args[2] if len(args) == 3 else None
+            return args[0].get(args[1], default)
+        if e.callee == "set":
+            if len(e.args) != 3:
+                raise UCLRuntimeError("set(map, key, value) takes 3 arguments")
+            m = self._eval(e.args[0], env)
+            k = self._eval(e.args[1], env)
+            v = self._eval(e.args[2], env)
+            if not isinstance(m, dict):
+                raise UCLRuntimeError(f"set() requires map, got {type(m).__name__}")
+            m[k] = v
+            return None
+        if e.callee == "keys":
+            if len(e.args) != 1:
+                raise UCLRuntimeError("keys(map) takes 1 argument")
+            m = self._eval(e.args[0], env)
+            if not isinstance(m, dict):
+                raise UCLRuntimeError(f"keys() requires map, got {type(m).__name__}")
+            return list(m.keys())
+        if e.callee == "values":
+            if len(e.args) != 1:
+                raise UCLRuntimeError("values(map) takes 1 argument")
+            m = self._eval(e.args[0], env)
+            if not isinstance(m, dict):
+                raise UCLRuntimeError(f"values() requires map, got {type(m).__name__}")
+            return list(m.values())
+        if e.callee == "has_key":
+            if len(e.args) != 2:
+                raise UCLRuntimeError("has_key(map, key) takes 2 arguments")
+            m = self._eval(e.args[0], env)
+            k = self._eval(e.args[1], env)
+            if not isinstance(m, dict):
+                raise UCLRuntimeError(f"has_key() requires map, got {type(m).__name__}")
+            return k in m
+        if e.callee == "remove":
+            if len(e.args) != 2:
+                raise UCLRuntimeError("remove(map, key) takes 2 arguments")
+            m = self._eval(e.args[0], env)
+            k = self._eval(e.args[1], env)
+            if not isinstance(m, dict):
+                raise UCLRuntimeError(f"remove() requires map, got {type(m).__name__}")
+            return m.pop(k, None)
+        if e.callee == "map_arr":
+            if len(e.args) != 2:
+                raise UCLRuntimeError("map_arr(array, fn) takes 2 arguments")
+            arr = self._eval(e.args[0], env)
+            fn = self._eval(e.args[1], env)
+            if not isinstance(arr, list):
+                raise UCLRuntimeError(f"map_arr() first arg must be array, got {type(arr).__name__}")
+            if not isinstance(fn, UCLLambda):
+                raise UCLRuntimeError("map_arr() second arg must be a lambda")
+            return [self._call_lambda(fn, [x]) for x in arr]
+        if e.callee == "filter_arr":
+            if len(e.args) != 2:
+                raise UCLRuntimeError("filter_arr(array, fn) takes 2 arguments")
+            arr = self._eval(e.args[0], env)
+            fn = self._eval(e.args[1], env)
+            if not isinstance(arr, list):
+                raise UCLRuntimeError(f"filter_arr() first arg must be array, got {type(arr).__name__}")
+            if not isinstance(fn, UCLLambda):
+                raise UCLRuntimeError("filter_arr() second arg must be a lambda")
+            return [x for x in arr if self._truthy(self._call_lambda(fn, [x]))]
+        try:
+            val = env.get(e.callee)
+            if isinstance(val, UCLLambda):
+                args = [self._eval(a, env) for a in e.args]
+                return self._call_lambda(val, args)
+        except UCLRuntimeError:
+            pass
         if e.callee in ("tensor", "weights", "tokenstream", "graph", "dot", "matmul", "quant"):
             raise UCLRuntimeError(f"AI-native builtin '{e.callee}' not yet evaluable in v0 (roadmap)")
         raise UCLRuntimeError(f"unknown function '{e.callee}'")
+
+    def _match_pattern(self, pat: ast.Node, val: Any, bindings: Dict[str, Any]) -> bool:
+        if isinstance(pat, ast.WildcardPattern):
+            return True
+        if isinstance(pat, ast.LitPattern):
+            lit = pat.value
+            if isinstance(lit, ast.IntLit):
+                return val == lit.value
+            if isinstance(lit, ast.FloatLit):
+                return val == lit.value
+            if isinstance(lit, ast.StrLit):
+                return val == lit.value
+            if isinstance(lit, ast.BoolLit):
+                return val == lit.value
+            return False
+        if isinstance(pat, ast.VarPattern):
+            bindings[pat.name] = val
+            return True
+        if isinstance(pat, ast.TuplePattern):
+            if not isinstance(val, list):
+                return False
+            if len(val) != len(pat.elements):
+                return False
+            for p, v in zip(pat.elements, val):
+                if not self._match_pattern(p, v, bindings):
+                    return False
+            return True
+        if isinstance(pat, ast.ArrayPattern):
+            if not isinstance(val, list):
+                return False
+            # check for rest pattern (...name)
+            rest_idx = None
+            for i, elem in enumerate(pat.elements):
+                if isinstance(elem, ast.RestPattern):
+                    rest_idx = i
+                    break
+            if rest_idx is not None:
+                fixed_count = len(pat.elements) - 1
+                if len(val) < fixed_count:
+                    return False
+                # match elements before rest
+                for i in range(rest_idx):
+                    if not self._match_pattern(pat.elements[i], val[i], bindings):
+                        return False
+                # bind rest
+                after_count = len(pat.elements) - rest_idx - 1
+                rest_end = len(val) - after_count if after_count > 0 else len(val)
+                bindings[pat.elements[rest_idx].name] = val[rest_idx:rest_end]
+                # match elements after rest
+                for j in range(after_count):
+                    pat_idx = rest_idx + 1 + j
+                    val_idx = len(val) - after_count + j
+                    if not self._match_pattern(pat.elements[pat_idx], val[val_idx], bindings):
+                        return False
+                return True
+            if len(val) != len(pat.elements):
+                return False
+            for p, v in zip(pat.elements, val):
+                if not self._match_pattern(p, v, bindings):
+                    return False
+            return True
+        if isinstance(pat, ast.MapPattern):
+            if not isinstance(val, dict):
+                return False
+            for k_node, v_pat in zip(pat.keys, pat.patterns):
+                key = k_node.value
+                if key not in val:
+                    return False
+                if not self._match_pattern(v_pat, val[key], bindings):
+                    return False
+            return True
+        return False
 
     @staticmethod
     def _truthy(v: Any) -> bool:
@@ -347,6 +580,8 @@ class Interpreter:
     def _stringify(v: Any) -> str:
         if isinstance(v, bool):
             return "true" if v else "false"
+        if isinstance(v, UCLLambda):
+            return f"<lambda({', '.join(v.params)})>"
         return str(v)
 
 

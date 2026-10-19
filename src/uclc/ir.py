@@ -106,17 +106,22 @@ class Lowerer:
         elif isinstance(s, ast.While):
             l_top = f.label()
             l_end = f.label()
+            prev = getattr(self, '_loop_labels', None)
+            self._loop_labels = (l_top, l_end)
             f.emit(f"{l_top}:")
             c = self._expr(f, s.cond)
             f.emit(f"jmpf {c}, {l_end}")
             self._block(f, s.body)
             f.emit(f"jmp {l_top}")
             f.emit(f"{l_end}:")
+            self._loop_labels = prev
         elif isinstance(s, ast.ForIn):
             arr = self._expr(f, s.iterable)
             idx = f.tmp(); f.emit(f"{idx} = const 0")
             ln = f.tmp(); f.emit(f"{ln} = call len({arr})")
             l_top = f.label(); l_end = f.label()
+            prev = getattr(self, '_loop_labels', None)
+            self._loop_labels = (l_top, l_end)
             f.emit(f"{l_top}:")
             cmp = f.tmp(); f.emit(f"{cmp} = < {idx}, {ln}")
             f.emit(f"jmpf {cmp}, {l_end}")
@@ -128,8 +133,68 @@ class Lowerer:
             f.emit(f"store {idx}, {inc}"); f.emit(f"{idx} = load {idx}")
             f.emit(f"jmp {l_top}")
             f.emit(f"{l_end}:")
+            self._loop_labels = prev
+        elif isinstance(s, ast.Break):
+            labels = getattr(self, '_loop_labels', None)
+            if labels is None:
+                raise TypeError("break outside loop")
+            f.emit(f"jmp {labels[1]}")
+        elif isinstance(s, ast.Continue):
+            labels = getattr(self, '_loop_labels', None)
+            if labels is None:
+                raise TypeError("continue outside loop")
+            f.emit(f"jmp {labels[0]}")
+        elif isinstance(s, ast.Match):
+            val = self._expr(f, s.expr)
+            l_end = f.label()
+            for case in s.cases:
+                l_next = f.label()
+                self._lower_pattern_check(f, case.pattern, val, l_next)
+                if case.guard is not None:
+                    g = self._expr(f, case.guard)
+                    f.emit(f"jmpf {g}, {l_next}")
+                self._stmt(f, case.body)
+                f.emit(f"jmp {l_end}")
+                f.emit(f"{l_next}:")
+            f.emit(f"{l_end}:")
         else:  # pragma: no cover - defensive
             raise TypeError(f"cannot lower statement {type(s).__name__}")
+
+    def _lower_pattern_check(self, f: IRFunction, pat: ast.Node, val: str, l_fail: str) -> None:
+        if isinstance(pat, ast.WildcardPattern):
+            pass  # always matches
+        elif isinstance(pat, ast.LitPattern):
+            lit_t = self._expr(f, pat.value)
+            cmp = f.tmp()
+            f.emit(f"{cmp} = == {val}, {lit_t}")
+            f.emit(f"jmpf {cmp}, {l_fail}")
+        elif isinstance(pat, ast.VarPattern):
+            f.emit(f"store {pat.name}, {val}")
+        elif isinstance(pat, ast.TuplePattern):
+            for i, elem_pat in enumerate(pat.elements):
+                idx_t = f.tmp()
+                f.emit(f"{idx_t} = const {i}")
+                elem_t = f.tmp()
+                f.emit(f"{elem_t} = index {val}, {idx_t}")
+                self._lower_pattern_check(f, elem_pat, elem_t, l_fail)
+        elif isinstance(pat, ast.RestPattern):
+            f.emit(f"store {pat.name}, {val}")  # simplified: bind the rest
+        elif isinstance(pat, ast.ArrayPattern):
+            for i, elem_pat in enumerate(pat.elements):
+                if isinstance(elem_pat, ast.RestPattern):
+                    f.emit(f"store {elem_pat.name}, {val}")  # rest binding (simplified)
+                    continue
+                idx_t = f.tmp()
+                f.emit(f"{idx_t} = const {i}")
+                elem_t = f.tmp()
+                f.emit(f"{elem_t} = index {val}, {idx_t}")
+                self._lower_pattern_check(f, elem_pat, elem_t, l_fail)
+        elif isinstance(pat, ast.MapPattern):
+            for k_node, v_pat in zip(pat.keys, pat.patterns):
+                k_t = self._expr(f, k_node)
+                v_t = f.tmp()
+                f.emit(f"{v_t} = index {val}, {k_t}")
+                self._lower_pattern_check(f, v_pat, v_t, l_fail)
 
     def _expr(self, f: IRFunction, e: ast.Node) -> str:
         if isinstance(e, ast.IntLit):
@@ -173,6 +238,26 @@ class Lowerer:
             i = self._expr(f, e.index)
             t = f.tmp()
             f.emit(f"{t} = index {o}, {i}")
+            return t
+        if isinstance(e, ast.MatchExpr):
+            val = self._expr(f, e.expr)
+            result = f.tmp()
+            l_end = f.label()
+            for arm in e.arms:
+                l_next = f.label()
+                self._lower_pattern_check(f, arm.pattern, val, l_next)
+                if arm.guard is not None:
+                    g = self._expr(f, arm.guard)
+                    f.emit(f"jmpf {g}, {l_next}")
+                arm_val = self._expr(f, arm.body)
+                f.emit(f"{result} = {arm_val}")
+                f.emit(f"jmp {l_end}")
+                f.emit(f"{l_next}:")
+            f.emit(f"{l_end}:")
+            return result
+        if isinstance(e, ast.Lambda):
+            t = f.tmp()
+            f.emit(f"{t} = lambda [{', '.join(e.params)}]")
             return t
         if isinstance(e, ast.MethodCall):
             o = self._expr(f, e.obj)

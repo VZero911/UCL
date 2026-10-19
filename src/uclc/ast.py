@@ -118,14 +118,84 @@ class ForIn(Node):
 
 
 @dataclass
+class Break(Node):
+    pass
+
+
+@dataclass
+class Continue(Node):
+    pass
+
+
+@dataclass
 class ArrayLit(Node):
     elements: List[Node] = field(default_factory=list)
+
+
+@dataclass
+class MapLit(Node):
+    keys: List[Node] = field(default_factory=list)
+    values: List[Node] = field(default_factory=list)
+
+
+@dataclass
+class Lambda(Node):
+    params: List[str] = field(default_factory=list)
+    body: Node = None
 
 
 @dataclass
 class Index(Node):
     obj: Node
     index: Node
+
+
+# ---- pattern matching -------------------------------------------------------
+@dataclass
+class LitPattern(Node):
+    value: Node  # IntLit, FloatLit, StrLit, BoolLit
+
+@dataclass
+class WildcardPattern(Node):
+    pass
+
+@dataclass
+class VarPattern(Node):
+    name: str
+
+@dataclass
+class ArrayPattern(Node):
+    elements: List[Node] = field(default_factory=list)  # list of patterns
+
+@dataclass
+class TuplePattern(Node):
+    elements: List[Node] = field(default_factory=list)  # list of patterns
+
+@dataclass
+class RestPattern(Node):
+    name: str  # variable name to bind the rest of the array
+
+@dataclass
+class MapPattern(Node):
+    keys: List[Node] = field(default_factory=list)    # StrLit keys
+    patterns: List[Node] = field(default_factory=list) # value patterns
+
+@dataclass
+class MatchCase(Node):
+    pattern: Node           # a pattern node
+    guard: Optional[Node]   # optional guard expression (if cond)
+    body: Node              # statement to execute
+
+@dataclass
+class Match(Node):
+    expr: Node                                        # expression being matched
+    cases: List[MatchCase] = field(default_factory=list)
+
+@dataclass
+class MatchExpr(Node):
+    """Match as expression: each arm body is an expression, returns matched value."""
+    expr: Node
+    arms: List[MatchCase] = field(default_factory=list)
 
 
 # ---- declarations ----------------------------------------------------------

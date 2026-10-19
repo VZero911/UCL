@@ -17,6 +17,7 @@ class LexError(SyntaxError):
 
 _TWO_CHAR = {
     "->": T.ARROW,
+    "=>": T.FAT_ARROW,
     "==": T.EQ,
     "!=": T.NE,
     "<=": T.LE,
@@ -31,7 +32,7 @@ _ONE_CHAR = {
     ",": T.COMMA, ";": T.SEMI, ":": T.COLON,
     "=": T.ASSIGN, "+": T.PLUS, "-": T.MINUS,
     "*": T.STAR, "/": T.SLASH, "%": T.PERCENT,
-    "<": T.LT, ">": T.GT, "!": T.NOT, ".": T.DOT,
+    "<": T.LT, ">": T.GT, "!": T.NOT, ".": T.DOT, "|": T.PIPE,
 }
 
 
@@ -80,11 +81,20 @@ class Lexer:
             if c.isdigit() or (c == "." and self._peek(1).isdigit()):
                 toks.append(self._number(line, col))
                 continue
+            if c == "_" and not (self._peek(1).isalnum() or self._peek(1) == "_"):
+                self._advance()
+                toks.append(Token(T.UNDERSCORE, "_", line, col))
+                continue
             if c.isalpha() or c == "_":
                 toks.append(self._ident(line, col))
                 continue
             if c == '"':
                 toks.append(self._string(line, col))
+                continue
+            # three-char token: ...
+            if c == "." and self._peek(1) == "." and self._peek(2) == ".":
+                self._advance(); self._advance(); self._advance()
+                toks.append(Token(T.DOTDOTDOT, "...", line, col))
                 continue
             two = c + self._peek(1)
             if two in _TWO_CHAR:

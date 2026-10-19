@@ -1,0 +1,54 @@
+// closures.ucl — lambdas and closures in UCL v0.5
+
+fn main() -> i32 {
+    // basic lambda
+    let double = |x| -> x * 2;
+    print("double(5) =", double(5));
+
+    // multi-param lambda
+    let add = |a, b| -> a + b;
+    print("add(3, 7) =", add(3, 7));
+
+    // closure capturing outer variable
+    let factor = 100;
+    let scale = |x| -> x * factor;
+    print("scale(42) =", scale(42));
+
+    // block-body lambda with return
+    let clamp = |x| {
+        if x < 0 { return 0; }
+        if x > 255 { return 255; }
+        return x;
+    };
+    print("clamp(-5) =", clamp(-5));
+    print("clamp(128) =", clamp(128));
+    print("clamp(999) =", clamp(999));
+
+    // higher-order: lambda taking a lambda
+    let apply = |f, x| -> f(x);
+    let sq = |x| -> x * x;
+    print("apply(sq, 9) =", apply(sq, 9));
+
+    // nested lambda (closure factory)
+    let make_adder = |n| -> |x| -> x + n;
+    let add10 = make_adder(10);
+    print("add10(32) =", add10(32));
+
+    // map_arr: transform each element
+    let nums = [1, 2, 3, 4, 5];
+    let tripled = map_arr(nums, |x| -> x * 3);
+    print("tripled =");
+    for v in tripled { print(" ", v); }
+
+    // filter_arr: keep matching elements
+    let evens = filter_arr(nums, |x| -> x % 2 == 0);
+    print("evens =");
+    for v in evens { print(" ", v); }
+
+    // chaining map + filter
+    let big = filter_arr(map_arr(nums, |x| -> x * x), |x| -> x > 10);
+    print("squares > 10 =");
+    for v in big { print(" ", v); }
+
+    return 0;
+}

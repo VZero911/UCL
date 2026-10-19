@@ -192,6 +192,13 @@ class Checker:
             else:
                 inner.define(s.var_name, VOID)
             self._check_block(s.body, inner, fn_type)
+        elif isinstance(s, ast.Match):
+            self._check_expr(s.expr, env)
+            for case in s.cases:
+                case_env = TypeEnv(env)
+                if case.guard is not None:
+                    self._check_expr(case.guard, case_env)
+                self._check_stmt(case.body, case_env, fn_type)
 
     def _check_let(self, s: ast.Let, env: TypeEnv) -> None:
         init_type = self._check_expr(s.value, env)
@@ -269,6 +276,17 @@ class Checker:
             return self._check_member(e, env)
         if isinstance(e, ast.MethodCall):
             return self._check_method_call(e, env)
+        if isinstance(e, ast.MatchExpr):
+            self._check_expr(e.expr, env)
+            last_type: Optional[UclType] = None
+            for arm in e.arms:
+                arm_env = TypeEnv(env)
+                if arm.guard is not None:
+                    self._check_expr(arm.guard, arm_env)
+                last_type = self._check_expr(arm.body, arm_env)
+            return last_type
+        if isinstance(e, ast.Lambda):
+            return None  # lambda types need more inference
         return None
 
     def _check_unary(self, e: ast.Unary, env: TypeEnv) -> Optional[UclType]:

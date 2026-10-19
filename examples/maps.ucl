@@ -1,0 +1,44 @@
+// maps.ucl — hash map operations.
+
+fn main() -> i32 {
+    // Create a map
+    let ports = map("pandora_dash", 7776, "pandora_api", 7777, "vite", 7778, "alicehub", 7785);
+    print("port count:", len(ports));
+
+    // Access by key
+    print("pandora api:", get(ports, "pandora_api"));
+    print("vite:", ports["vite"]);
+
+    // Add entries
+    set(ports, "ollama", 11434);
+    set(ports, "theseed", 8546);
+    print("after add:", len(ports));
+
+    // Check existence
+    print("has ollama:", has_key(ports, "ollama"));
+    print("has nginx:", has_key(ports, "nginx"));
+
+    // Iterate keys
+    print("all services:");
+    for k in keys(ports) {
+        print(" ", k, "->", get(ports, k));
+    }
+
+    // Remove
+    remove(ports, "vite");
+    print("after remove:", len(ports));
+
+    // Default value
+    let missing = get(ports, "missing_service", 0);
+    print("missing default:", missing);
+
+    // Nested data: map of arrays
+    let teams = map("security", 3, "infra", 2, "trading", 1);
+    let total = 0;
+    for team in keys(teams) {
+        total = total + get(teams, team);
+    }
+    print("total agents:", total);
+
+    return 0;
+}

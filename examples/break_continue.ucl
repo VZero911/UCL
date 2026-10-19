@@ -1,0 +1,31 @@
+// break_continue.ucl — demonstrates loop control flow.
+
+fn main() -> i32 {
+    // Find first number > 100 divisible by 7
+    let i = 100;
+    while i < 200 {
+        i = i + 1;
+        if i % 7 != 0 { continue; }
+        print("first >100 div by 7:", i);
+        break;
+    }
+
+    // Skip even numbers in range
+    print("odd numbers 0-9:");
+    for x in range(10) {
+        if x % 2 == 0 { continue; }
+        print(x);
+    }
+
+    // Nested: find pairs where product > 20
+    print("pairs where i*j > 20:");
+    for i in range(1, 8) {
+        for j in range(1, 8) {
+            if i * j <= 20 { continue; }
+            print(i, "*", j, "=", i * j);
+            break;
+        }
+    }
+
+    return 0;
+}

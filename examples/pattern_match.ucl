@@ -1,0 +1,148 @@
+// UCL v0.6 — pattern matching demo
+// Covers: literal, wildcard, variable binding, guards, tuple destructuring,
+//         array rest patterns, match-as-expression, fat arrow (=>) syntax.
+
+fn classify(x: i32) -> str {
+    match x {
+        case 0 -> { return "zero"; }
+        case 1 -> { return "one"; }
+        case n if n < 0 -> { return "negative"; }
+        case n if n > 100 -> { return "big: " + to_str(n); }
+        case _ -> { return "other: " + to_str(x); }
+    }
+    return "unreachable";
+}
+
+fn main() {
+    // ---- literal matching (case + arrow syntax) ----
+    print(classify(0));
+    print(classify(1));
+    print(classify(-5));
+    print(classify(200));
+    print(classify(42));
+
+    // ---- array destructuring ----
+    let point = [10, 20];
+    match point {
+        case [x, y] -> print("x=" + to_str(x) + " y=" + to_str(y));
+    }
+
+    // ---- tuple destructuring (same semantics, paren syntax) ----
+    let coord = [3, 4];
+    match coord {
+        case (a, b) -> print("tuple: " + to_str(a) + "," + to_str(b));
+    }
+
+    // ---- map destructuring ----
+    let config = map("host", "127.0.0.1", "port", 7777);
+    match config {
+        case {"host": h} -> print("host=" + h);
+    }
+
+    // ---- match with guard in a loop ----
+    for i in range(5) {
+        match i {
+            case 0 -> print("start");
+            case n if n == 4 -> print("last");
+            case _ -> print("mid");
+        }
+    }
+
+    // ---- boolean patterns ----
+    let flag = true;
+    match flag {
+        case true -> print("enabled");
+        case false -> print("disabled");
+    }
+
+    // ---- fat arrow (=>) syntax without case keyword ----
+    let val = 2;
+    match val {
+        1 => print("one");
+        2 => print("two");
+        _ => print("other");
+    }
+
+    // ---- match as expression ----
+    let x = 42;
+    let label = match x {
+        0 => "zero",
+        1 => "one",
+        n if n > 10 => "big: " + to_str(n),
+        _ => "small",
+    };
+    print(label);
+
+    // ---- match expression in function call ----
+    let code = 200;
+    print(match code {
+        200 => "OK",
+        404 => "NOT FOUND",
+        500 => "SERVER ERROR",
+        _ => "UNKNOWN",
+    });
+
+    // ---- match expression with arithmetic ----
+    let tier = 3;
+    let bonus = match tier {
+        1 => 100,
+        2 => 250,
+        3 => 500,
+        _ => 0,
+    } + 50;
+    print("bonus=" + to_str(bonus));
+
+    // ---- tuple destructuring in match expression ----
+    let pair = [5, 10];
+    let sum = match pair {
+        (a, b) => a + b,
+    };
+    print("sum=" + to_str(sum));
+
+    // ---- array rest pattern: [first, ...rest] ----
+    let nums = [10, 20, 30, 40, 50];
+    match nums {
+        case [head, ...tail] -> {
+            print("head=" + to_str(head));
+            print("tail_len=" + to_str(len(tail)));
+        }
+    }
+
+    // ---- rest with elements after: [first, ...middle, last] ----
+    match nums {
+        case [first, ...mid, last] -> {
+            print("first=" + to_str(first) + " last=" + to_str(last));
+            print("mid_len=" + to_str(len(mid)));
+        }
+    }
+
+    // ---- nested match expressions ----
+    let role = "admin";
+    let level = 9;
+    let access = match role {
+        "admin" => match level {
+            n if n >= 9 => "FULL",
+            _ => "PARTIAL",
+        },
+        "user" => "BASIC",
+        _ => "NONE",
+    };
+    print("access=" + access);
+
+    // ---- match expression returning lambdas ----
+    let mode = "double";
+    let transform = match mode {
+        "double" => |x| -> x * 2,
+        "square" => |x| -> x * x,
+        _ => |x| -> x,
+    };
+    print("transform(7)=" + to_str(transform(7)));
+
+    // ---- negative number pattern ----
+    let temp = -10;
+    match temp {
+        case -10 -> print("freezing");
+        case 0 -> print("zero");
+        case _ -> print("other temp");
+    }
+}

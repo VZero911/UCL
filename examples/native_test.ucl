@@ -1,0 +1,11 @@
+fn main() {
+    let x = 42;
+    let y = 8;
+    let sum = x + y;
+    let diff = x - y;
+    let prod = x * y;
+    print(sum);
+    print(diff);
+    print(prod);
+    return 0;
+}

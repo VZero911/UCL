@@ -38,19 +38,19 @@ python3 -m uclc.cli emit-ir examples/fib.ucl     # show the low-level IR
 python3 -m uclc.cli tokens  examples/hello.ucl   # dump the token stream
 ```
 
-More runnable programs: `examples/fizzbuzz.ucl`, `examples/factorial.ucl`, `examples/prime.ucl`.
+More runnable programs: `examples/fizzbuzz.ucl`, `examples/factorial.ucl`, `examples/prime.ucl`, `examples/strings.ucl`, `examples/maps.ucl`, `examples/break_continue.ucl`, `examples/closures.ucl`, `examples/pattern_match.ucl`.
 
-## Status (v0.1)
+## Status (v0.6)
 
 | Stage | State |
 |---|---|
-| Lexer | ✅ complete (comments, int/float/string, operators, AI type keywords) |
-| Parser | ✅ fns, classes, let/assign/return/if/while, full expr precedence, member/method calls, generic type args |
+| Lexer | ✅ complete (comments, int/float/string, operators, AI type keywords, pipe for lambdas) |
+| Parser | ✅ fns, classes, let/assign/return/if/while/for..in, full expr precedence, member/method calls, generic type args, arrays, **lambdas** |
 | IR lowering | ✅ three-address IR for all of the above |
-| Evaluator | ✅ reference tree-walking interpreter for the procedural subset |
+| Evaluator | ✅ reference tree-walking interpreter with 10 string builtins, type conversion, arrays, for..in, break/continue, hash maps (7 builtins), closures/lambdas, map_arr, filter_arr, **pattern matching (match/case with destructuring, guards, wildcards)** |
 | Objects / AI ops | ⏳ parse + lower today; evaluation + native codegen on the roadmap |
 
-33 tests green (`make test` or `python3 -m pytest -q`). Runnable examples: `make examples`. Contributor guide: [CONTRIBUTING.md](CONTRIBUTING.md) · Changes: [CHANGELOG.md](CHANGELOG.md). See [docs/ROADMAP.md](docs/ROADMAP.md).
+135 tests green (`make test` or `python3 -m pytest -q`). Runnable examples: `make examples`. Contributor guide: [CONTRIBUTING.md](CONTRIBUTING.md) · Changes: [CHANGELOG.md](CHANGELOG.md). See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Docs
 - [Language spec](docs/SPEC.md) · [Grammar (EBNF)](docs/GRAMMAR.ebnf) · [Roadmap](docs/ROADMAP.md) · [THECORE integration](docs/THECORE_INTEGRATION.md)

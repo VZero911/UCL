@@ -185,6 +185,16 @@ class Parser:
             return self._while()
         if self._at(T.FOR):
             return self._for_in()
+        if self._at(T.BREAK):
+            tok = self._advance()
+            self._expect(T.SEMI)
+            return self._span(ast.Break(), tok)
+        if self._at(T.CONTINUE):
+            tok = self._advance()
+            self._expect(T.SEMI)
+            return self._span(ast.Continue(), tok)
+        if self._at(T.MATCH):
+            return self._match_stmt()
         if self._at(T.LBRACE):
             return self._block()
         # assignment or expression statement
@@ -240,6 +250,166 @@ class Parser:
         iterable = self._expr()
         body = self._block()
         return self._span(ast.ForIn(var_name, iterable, body), tok)
+
+    # -- match/case ---------------------------------------------------------
+    def _match_stmt(self) -> ast.Match:
+        tok = self._expect(T.MATCH)
+        expr = self._expr()
+        self._expect(T.LBRACE)
+        cases: List[ast.MatchCase] = []
+        while not self._at(T.RBRACE) and not self._at(T.EOF):
+            if self._at(T.CASE):
+                cases.append(self._match_case())
+            else:
+                cases.append(self._match_arm_stmt())
+        self._expect(T.RBRACE)
+        return self._span(ast.Match(expr, cases), tok)
+
+    def _match_case(self) -> ast.MatchCase:
+        tok = self._expect(T.CASE)
+        pattern = self._pattern()
+        guard: Optional[ast.Node] = None
+        if self._at(T.IF):
+            self._advance()
+            guard = self._expr()
+        if self._at(T.FAT_ARROW):
+            self._expect(T.FAT_ARROW)
+        else:
+            self._expect(T.ARROW)
+        body = self._stmt()
+        return self._span(ast.MatchCase(pattern, guard, body), tok)
+
+    def _match_arm_stmt(self) -> ast.MatchCase:
+        """Parse a match arm without the 'case' keyword: pattern [if guard] => stmt"""
+        tok = self._peek()
+        pattern = self._pattern()
+        guard: Optional[ast.Node] = None
+        if self._at(T.IF):
+            self._advance()
+            guard = self._expr()
+        self._expect(T.FAT_ARROW)
+        body = self._stmt()
+        return self._span(ast.MatchCase(pattern, guard, body), tok)
+
+    def _match_expr(self) -> ast.MatchExpr:
+        """Parse match as expression: match expr { pattern => expr, ... }"""
+        tok = self._expect(T.MATCH)
+        expr = self._expr()
+        self._expect(T.LBRACE)
+        arms: List[ast.MatchCase] = []
+        while not self._at(T.RBRACE) and not self._at(T.EOF):
+            arm_tok = self._peek()
+            pattern = self._pattern()
+            guard: Optional[ast.Node] = None
+            if self._at(T.IF):
+                self._advance()
+                guard = self._expr()
+            self._expect(T.FAT_ARROW)
+            body = self._expr()
+            arms.append(self._span(ast.MatchCase(pattern, guard, body), arm_tok))
+            self._match(T.COMMA)  # optional trailing comma
+        self._expect(T.RBRACE)
+        return self._span(ast.MatchExpr(expr, arms), tok)
+
+    def _pattern(self) -> ast.Node:
+        t = self._peek()
+        if t.type == T.UNDERSCORE:
+            self._advance()
+            return self._span(ast.WildcardPattern(), t)
+        if t.type == T.INT:
+            self._advance()
+            return self._span(ast.LitPattern(self._span(ast.IntLit(t.value), t)), t)
+        if t.type == T.FLOAT:
+            self._advance()
+            return self._span(ast.LitPattern(self._span(ast.FloatLit(t.value), t)), t)
+        if t.type == T.STRING:
+            self._advance()
+            return self._span(ast.LitPattern(self._span(ast.StrLit(t.value), t)), t)
+        if t.type == T.TRUE:
+            self._advance()
+            return self._span(ast.LitPattern(self._span(ast.BoolLit(True), t)), t)
+        if t.type == T.FALSE:
+            self._advance()
+            return self._span(ast.LitPattern(self._span(ast.BoolLit(False), t)), t)
+        if t.type == T.MINUS and self._peek(1).type in (T.INT, T.FLOAT):
+            self._advance()
+            num = self._advance()
+            if num.type == T.INT:
+                return self._span(ast.LitPattern(self._span(ast.IntLit(-num.value), t)), t)
+            return self._span(ast.LitPattern(self._span(ast.FloatLit(-num.value), t)), t)
+        if t.type == T.LBRACKET:
+            return self._array_pattern()
+        if t.type == T.LBRACE:
+            return self._map_pattern()
+        if t.type == T.LPAREN:
+            return self._tuple_pattern()
+        if t.type == T.DOTDOTDOT:
+            return self._rest_pattern()
+        if t.type == T.IDENT:
+            self._advance()
+            return self._span(ast.VarPattern(t.value), t)
+        raise ParseError(f"expected pattern, got {t.type.name} ({t.value!r}) at line {t.line}:{t.col}")
+
+    def _array_pattern(self) -> ast.ArrayPattern:
+        tok = self._expect(T.LBRACKET)
+        elements: List[ast.Node] = []
+        if not self._at(T.RBRACKET):
+            elements.append(self._pattern())
+            while self._match(T.COMMA):
+                if self._at(T.RBRACKET):
+                    break  # allow trailing comma
+                elements.append(self._pattern())
+        self._expect(T.RBRACKET)
+        return self._span(ast.ArrayPattern(elements), tok)
+
+    def _tuple_pattern(self) -> ast.TuplePattern:
+        tok = self._expect(T.LPAREN)
+        elements: List[ast.Node] = []
+        if not self._at(T.RPAREN):
+            elements.append(self._pattern())
+            while self._match(T.COMMA):
+                if self._at(T.RPAREN):
+                    break
+                elements.append(self._pattern())
+        self._expect(T.RPAREN)
+        return self._span(ast.TuplePattern(elements), tok)
+
+    def _rest_pattern(self) -> ast.RestPattern:
+        tok = self._expect(T.DOTDOTDOT)
+        name = self._expect(T.IDENT).value
+        return self._span(ast.RestPattern(name), tok)
+
+    def _map_pattern(self) -> ast.MapPattern:
+        tok = self._expect(T.LBRACE)
+        keys: List[ast.Node] = []
+        patterns: List[ast.Node] = []
+        if not self._at(T.RBRACE):
+            k = self._expect(T.STRING)
+            keys.append(self._span(ast.StrLit(k.value), k))
+            self._expect(T.COLON)
+            patterns.append(self._pattern())
+            while self._match(T.COMMA):
+                k = self._expect(T.STRING)
+                keys.append(self._span(ast.StrLit(k.value), k))
+                self._expect(T.COLON)
+                patterns.append(self._pattern())
+        self._expect(T.RBRACE)
+        return self._span(ast.MapPattern(keys, patterns), tok)
+
+    # -- lambda ------------------------------------------------------------
+    def _lambda(self) -> ast.Lambda:
+        tok = self._expect(T.PIPE)
+        params: List[str] = []
+        if not self._at(T.PIPE):
+            params.append(self._expect(T.IDENT).value)
+            while self._match(T.COMMA):
+                params.append(self._expect(T.IDENT).value)
+        self._expect(T.PIPE)
+        if self._match(T.ARROW):
+            body = self._expr()
+        else:
+            body = self._block()
+        return self._span(ast.Lambda(params, body), tok)
 
     # -- expressions (precedence climbing) ----------------------------------
     def _expr(self, min_prec: int = 0) -> ast.Node:
@@ -310,6 +480,18 @@ class Parser:
                     elems.append(self._expr())
             self._expect(T.RBRACKET)
             return self._span(ast.ArrayLit(elems), t)
+        if t.type == T.MATCH:
+            return self._match_expr()
+        if t.type == T.PIPE:
+            return self._lambda()
+        if t.type == T.OR:
+            self._advance()
+            if self._at(T.ARROW):
+                self._advance()
+                body = self._expr()
+            else:
+                body = self._block()
+            return self._span(ast.Lambda([], body), t)
         if t.type in (T.IDENT, T.TYPE):
             self._advance()
             if self._at(T.LPAREN):

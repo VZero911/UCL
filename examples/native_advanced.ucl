@@ -1,0 +1,21 @@
+fn main() {
+    let a = 100;
+    let b = 7;
+    print(a / b);
+    print(a % b);
+
+    let neg = 0 - 42;
+    print(neg);
+
+    let i = 0;
+    while i < 5 {
+        print(i);
+        i = i + 1;
+    }
+
+    if a > b {
+        print(999);
+    }
+
+    return 0;
+}
