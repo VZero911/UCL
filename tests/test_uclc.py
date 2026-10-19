@@ -1603,3 +1603,190 @@ def test_native_function_with_loop():
     }
     """)
     assert rc == 0 and out == ["55"]
+
+
+# ---- IR optimizer ----------------------------------------------------------
+from uclc.optimizer import (
+    optimize, optimize_function, constant_fold_propagate,
+    strength_reduce, dead_code_eliminate,
+)
+from uclc.ir import IRFunction, Lowerer
+
+
+def _make_fn(code_lines, name="test", params=None):
+    fn = IRFunction(name, params or [])
+    fn.code = list(code_lines)
+    return fn
+
+
+def _lower_src(src):
+    return Lowerer().lower_program(parse(tokenize(src)))
+
+
+def test_opt_constant_fold_add():
+    fn = _make_fn(["t0 = const 3", "t1 = const 5", "t2 = + t0, t1", "ret t2"])
+    optimize_function(fn)
+    code = "\n".join(fn.code)
+    assert "const 8" in code
+
+
+def test_opt_constant_fold_all_arithmetic():
+    fn = _make_fn([
+        "t0 = const 10", "t1 = const 3",
+        "t2 = - t0, t1", "store a, t2",
+        "t3 = * t0, t1", "store b, t3",
+        "t4 = / t0, t1", "store c, t4",
+        "t5 = % t0, t1", "store d, t5",
+        "ret t5",
+    ])
+    optimize_function(fn)
+    code = "\n".join(fn.code)
+    assert "const 7" in code   # 10 - 3
+    assert "const 30" in code  # 10 * 3
+    assert "const 3" in code   # 10 / 3
+    assert "const 1" in code   # 10 % 3
+
+
+def test_opt_constant_fold_comparison():
+    fn = _make_fn([
+        "t0 = const 5", "t1 = const 5", "t2 = const 3",
+        "t3 = == t0, t1",
+        "t4 = != t0, t2",
+        "t5 = < t2, t0",
+        "ret t3",
+    ])
+    optimize_function(fn)
+    code = "\n".join(fn.code)
+    assert "const 1" in code
+
+
+def test_opt_constant_fold_chained():
+    fn = _make_fn([
+        "t0 = const 2", "t1 = const 3", "t2 = + t0, t1",
+        "t3 = const 4", "t4 = * t2, t3", "ret t4",
+    ])
+    optimize_function(fn)
+    code = "\n".join(fn.code)
+    assert "const 20" in code
+
+
+def test_opt_constant_fold_neg():
+    fn = _make_fn(["t0 = const 5", "t1 = neg t0", "ret t1"])
+    optimize_function(fn)
+    assert any("const -5" in line for line in fn.code)
+
+
+def test_opt_constant_fold_not():
+    fn = _make_fn(["t0 = const true", "t1 = not t0", "ret t1"])
+    optimize_function(fn)
+    assert any("const 0" in line for line in fn.code)
+
+
+def test_opt_constant_propagation():
+    fn = _make_fn([
+        "t0 = const 42", "store x, t0",
+        "t1 = load x", "ret t1",
+    ])
+    optimize_function(fn)
+    code = "\n".join(fn.code)
+    assert code.count("const 42") >= 2
+
+
+def test_opt_no_propagation_in_loops():
+    fn = _make_fn([
+        "t0 = const 0", "store x, t0",
+        "L0:",
+        "t1 = load x",
+        "t2 = const 10", "t3 = < t1, t2",
+        "jmpf t3, L1",
+        "t4 = const 1", "t5 = + t1, t4", "store x, t5",
+        "jmp L0",
+        "L1:",
+        "ret t1",
+    ])
+    optimize_function(fn)
+    assert any("load x" in line for line in fn.code)
+
+
+def test_opt_dead_code_elimination():
+    fn = _make_fn([
+        "t0 = const 1", "t1 = const 2", "t2 = + t0, t1",
+        "t3 = const 99",
+        "ret t2",
+    ])
+    optimize_function(fn)
+    assert not any("const 99" in line for line in fn.code)
+
+
+def test_opt_dce_preserves_side_effects():
+    fn = _make_fn([
+        "t0 = const 42", "t1 = call print(t0)", "ret",
+    ])
+    optimize_function(fn)
+    assert any("call print" in line for line in fn.code)
+
+
+def test_opt_strength_reduce_mul2():
+    fn = _make_fn([
+        "t0 = const 2", "t1 = load x", "t2 = * t1, t0", "ret t2",
+    ])
+    strength_reduce(fn)
+    assert any("+ t1, t1" in line for line in fn.code)
+
+
+def test_opt_strength_reduce_mul0():
+    fn = _make_fn([
+        "t0 = const 0", "t1 = load x", "t2 = * t1, t0", "ret t2",
+    ])
+    strength_reduce(fn)
+    assert any("const 0" in line for line in fn.code)
+
+
+def test_opt_strength_reduce_mul_neg1():
+    fn = _make_fn([
+        "t0 = const -1", "t1 = load x", "t2 = * t1, t0", "ret t2",
+    ])
+    strength_reduce(fn)
+    assert any("neg t1" in line for line in fn.code)
+
+
+def _compile_and_run_opt(src):
+    elf = compile_source_to_elf(src, use_optimizer=True)
+    with tempfile.NamedTemporaryFile(suffix=".out", delete=False) as f:
+        f.write(elf)
+        path = f.name
+    os.chmod(path, 0o755)
+    try:
+        r = subprocess.run([path], capture_output=True, text=True, timeout=5)
+        lines = [l for l in r.stdout.strip().split("\n") if l]
+        return r.returncode, lines
+    finally:
+        os.unlink(path)
+
+
+def test_opt_native_constant_fold():
+    rc, out = _compile_and_run_opt("""
+    fn main() {
+        let a = 3 + 5;
+        let b = a * 2;
+        print(b);
+        return 0;
+    }
+    """)
+    assert rc == 0 and out == ["16"]
+
+
+def test_opt_native_while_loop():
+    rc, out = _compile_and_run_opt("""
+    fn main() {
+        let i = 0;
+        let s = 0;
+        while i < 5 {
+            s = s + i;
+            i = i + 1;
+        }
+        print(s);
+        return 0;
+    }
+    """)
+    assert rc == 0 and out == ["10"]

@@ -37,6 +37,7 @@ from typing import Dict, List, Optional
 
 from .ir import IRFunction, Lowerer
 from .regalloc import RegisterAllocation, allocate_registers
+from .optimizer import optimize
 from . import ast
 
 
@@ -849,7 +850,8 @@ def _build_elf(code: bytes, entry_offset: int, data: bytes = b"") -> bytes:
     return bytes(ehdr) + bytes(phdr) + code + data
 
 
-def compile_to_elf(ir_funcs: List[IRFunction], *, use_regalloc: bool = False) -> bytes:
+def compile_to_elf(ir_funcs: List[IRFunction], *, use_regalloc: bool = False,
+                   use_optimizer: bool = False) -> bytes:
     """Compile IR functions to a standalone ELF executable.
 
     Two-pass for string literals: first pass with placeholder address, second
@@ -861,6 +863,9 @@ def compile_to_elf(ir_funcs: List[IRFunction], *, use_regalloc: bool = False) ->
     HEADERS_SIZE = ELF_HDR_SIZE + PHDR_SIZE
     # Placeholder — will be patched
     PLACEHOLDER_DATA_ADDR = 0xDEAD0000
+
+    if use_optimizer:
+        optimize(ir_funcs)
 
     asm = X86Emitter()
     compilers: List[FunctionCompiler] = []
@@ -926,11 +931,13 @@ def compile_to_elf(ir_funcs: List[IRFunction], *, use_regalloc: bool = False) ->
     return _build_elf(bytes(asm.code), entry_offset, str_data)
 
 
-def compile_source_to_elf(source: str, *, use_regalloc: bool = False) -> bytes:
+def compile_source_to_elf(source: str, *, use_regalloc: bool = False,
+                          use_optimizer: bool = False) -> bytes:
     """Full pipeline: UCL source -> ELF binary."""
     from .lexer import tokenize
     from .parser import parse
 
     prog = parse(tokenize(source))
     ir_funcs = Lowerer().lower_program(prog)
-    return compile_to_elf(ir_funcs, use_regalloc=use_regalloc)
+    return compile_to_elf(ir_funcs, use_regalloc=use_regalloc,
+                          use_optimizer=use_optimizer)

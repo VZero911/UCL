@@ -6,6 +6,19 @@ All notable changes to UCL are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-19
+
+### Added
+- **IR optimizer module** (`optimizer.py`): multi-pass optimization on three-address IR.
+- **Constant folding**: evaluates arithmetic/comparison ops on constant operands at compile time.
+- **Constant propagation**: propagates constants through single-assignment variables (straight-line code).
+- **Strength reduction**: replaces x*2 with x+x, x*0 with 0, x*-1 with neg x.
+- **Dead code elimination**: removes assignments to temps that are never used (preserves side effects).
+- Iterative pass application until convergence (max 10 iterations).
+- Wired into `codegen.py` via `use_optimizer=True` parameter.
+- `optimize` exported from `uclc` package.
+- 15 new tests (259 total): constant folding, propagation, DCE, strength reduction, native+optimizer end-to-end.
+
 ## [0.10.0] - 2026-10-19
 
 ### Added
