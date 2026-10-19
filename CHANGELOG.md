@@ -6,12 +6,14 @@ All notable changes to UCL are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-19
+
 ### Added
-- GitHub Actions CI (`.github/workflows/ci.yml`): runs `pytest` on Python 3.11 for every push and pull request.
-- `Makefile` with `install`, `test`, `run`, `lint`, `examples` and `clean` targets.
-- `CONTRIBUTING.md` covering setup, the `uclc` CLI, project layout and how to add examples.
-- Runnable examples: `fizzbuzz.ucl` (loops, modulo, else-if), `factorial.ucl` (recursive and iterative), `prime.ucl` (trial-division primality).
-- `test` optional extra (`pip install -e ".[test]"`); no runtime dependencies added.
+- **String builtins**: `upper(s)`, `lower(s)`, `trim(s)`, `split(s [, sep])`, `contains(haystack, needle)`, `substr(s, start [, len])` — all work on strings, `contains` also on arrays.
+- **Type conversion builtins**: `to_str(v)`, `to_int(v)`, `to_float(v)` for runtime conversions.
+- `strings.ucl` and `arrays.ucl` examples demonstrating the new builtins.
+- 10 new tests for string/conversion builtins (101 total).
+- GitHub Actions CI, Makefile, CONTRIBUTING.md, runnable examples (carried from unreleased).
 
 ## [0.2.0] - 2026-10-19
 

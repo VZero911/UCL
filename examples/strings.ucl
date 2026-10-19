@@ -1,0 +1,49 @@
+// strings.ucl — string operations + type conversion builtins.
+
+fn main() -> i32 {
+    let greeting = "Hello, UCL World!";
+    print("greeting:", greeting);
+    print("length:", len(greeting));
+
+    // Indexing
+    print("first:", greeting[0]);
+    print("last:", greeting[len(greeting) - 1]);
+
+    // String builtins
+    print("upper:", upper(greeting));
+    print("lower:", lower(greeting));
+    print("trimmed:", trim("  spaces  "));
+
+    // Substring
+    print("substr05:", substr(greeting, 0, 5));
+    print("substr7:", substr(greeting, 7));
+
+    // Contains
+    print("has UCL:", contains(greeting, "UCL"));
+    print("has xyz:", contains(greeting, "xyz"));
+
+    // Split
+    let parts = split("one two three");
+    print("split count:", len(parts));
+
+    // Concatenation
+    let name = "V" + "0";
+    print("concat:", name);
+
+    // Type conversion
+    let n = 42;
+    let s = to_str(n);
+    print("to_str:", s);
+    print("to_int:", to_int("99"));
+
+    // String comparison
+    print("eq:", "abc" == "abc");
+    print("neq:", "abc" != "xyz");
+
+    // Contains on array
+    let arr = [10, 20, 30];
+    print("arr has 20:", contains(arr, 20));
+    print("arr has 99:", contains(arr, 99));
+
+    return 0;
+}

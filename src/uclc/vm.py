@@ -253,6 +253,70 @@ class Interpreter:
                 raise UCLRuntimeError("push() first arg must be an array")
             arr.append(val)
             return None
+        if e.callee == "split":
+            if len(e.args) not in (1, 2):
+                raise UCLRuntimeError("split(str [, sep]) takes 1-2 arguments")
+            s = self._eval(e.args[0], env)
+            if not isinstance(s, str):
+                raise UCLRuntimeError(f"split() requires str, got {type(s).__name__}")
+            sep = self._eval(e.args[1], env) if len(e.args) == 2 else " "
+            return s.split(sep)
+        if e.callee == "upper":
+            if len(e.args) != 1:
+                raise UCLRuntimeError("upper(str) takes 1 argument")
+            s = self._eval(e.args[0], env)
+            if not isinstance(s, str):
+                raise UCLRuntimeError(f"upper() requires str, got {type(s).__name__}")
+            return s.upper()
+        if e.callee == "lower":
+            if len(e.args) != 1:
+                raise UCLRuntimeError("lower(str) takes 1 argument")
+            s = self._eval(e.args[0], env)
+            if not isinstance(s, str):
+                raise UCLRuntimeError(f"lower() requires str, got {type(s).__name__}")
+            return s.lower()
+        if e.callee == "contains":
+            if len(e.args) != 2:
+                raise UCLRuntimeError("contains(haystack, needle) takes 2 arguments")
+            h = self._eval(e.args[0], env)
+            n = self._eval(e.args[1], env)
+            if isinstance(h, str):
+                return str(n) in h
+            if isinstance(h, list):
+                return n in h
+            raise UCLRuntimeError(f"contains() requires str or array, got {type(h).__name__}")
+        if e.callee == "substr":
+            args = [self._eval(a, env) for a in e.args]
+            if len(args) < 2 or len(args) > 3:
+                raise UCLRuntimeError("substr(str, start [, length]) takes 2-3 arguments")
+            s = args[0]
+            if not isinstance(s, str):
+                raise UCLRuntimeError(f"substr() requires str, got {type(s).__name__}")
+            start = int(args[1])
+            if len(args) == 3:
+                return s[start:start + int(args[2])]
+            return s[start:]
+        if e.callee == "trim":
+            if len(e.args) != 1:
+                raise UCLRuntimeError("trim(str) takes 1 argument")
+            s = self._eval(e.args[0], env)
+            if not isinstance(s, str):
+                raise UCLRuntimeError(f"trim() requires str, got {type(s).__name__}")
+            return s.strip()
+        if e.callee == "to_str":
+            if len(e.args) != 1:
+                raise UCLRuntimeError("to_str(value) takes 1 argument")
+            return self._stringify(self._eval(e.args[0], env))
+        if e.callee == "to_int":
+            if len(e.args) != 1:
+                raise UCLRuntimeError("to_int(value) takes 1 argument")
+            v = self._eval(e.args[0], env)
+            return int(v)
+        if e.callee == "to_float":
+            if len(e.args) != 1:
+                raise UCLRuntimeError("to_float(value) takes 1 argument")
+            v = self._eval(e.args[0], env)
+            return float(v)
         if e.callee in self.classes:
             cls = self.classes[e.callee]
             defaults: Dict[str, Any] = {}

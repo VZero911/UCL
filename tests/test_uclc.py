@@ -156,6 +156,56 @@ def test_eval_int_div_by_zero():
         _run_capture("fn main() { print(1 / 0); }")
 
 
+def test_eval_string_upper():
+    _, out = _run_capture('fn main() { print(upper("hello")); }')
+    assert out == ["HELLO"]
+
+
+def test_eval_string_lower():
+    _, out = _run_capture('fn main() { print(lower("WORLD")); }')
+    assert out == ["world"]
+
+
+def test_eval_string_split():
+    _, out = _run_capture('fn main() { let parts = split("a,b,c", ","); print(len(parts)); print(parts[0]); }')
+    assert out == ["3", "a"]
+
+
+def test_eval_string_contains():
+    _, out = _run_capture('fn main() { if contains("hello world", "world") { print("yes"); } }')
+    assert out == ["yes"]
+
+
+def test_eval_string_substr():
+    _, out = _run_capture('fn main() { print(substr("abcdef", 2, 3)); }')
+    assert out == ["cde"]
+
+
+def test_eval_string_trim():
+    _, out = _run_capture('fn main() { print(trim("  hi  ")); }')
+    assert out == ["hi"]
+
+
+def test_eval_to_str():
+    _, out = _run_capture('fn main() { print(to_str(42)); }')
+    assert out == ["42"]
+
+
+def test_eval_to_int():
+    _, out = _run_capture('fn main() { let x = to_int("7"); print(x + 3); }')
+    assert out == ["10"]
+
+
+def test_eval_to_float():
+    _, out = _run_capture('fn main() { let x = to_float("3.14"); print(x); }')
+    assert out == ["3.14"]
+
+
+def test_eval_contains_array():
+    _, out = _run_capture('fn main() { let arr = [1, 2, 3]; if contains(arr, 2) { print("found"); } }')
+    assert out == ["found"]
+
+
 def test_eval_ai_builtin_is_roadmap_error():
     with pytest.raises(UCLRuntimeError):
         _run_capture("fn main() { let t = tensor(1.0); }")
