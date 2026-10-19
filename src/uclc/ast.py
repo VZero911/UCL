@@ -83,6 +83,13 @@ class Assign(Node):
 
 
 @dataclass
+class MemberAssign(Node):
+    obj: Node
+    name: str
+    value: Node
+
+
+@dataclass
 class Return(Node):
     value: Optional[Node]
 

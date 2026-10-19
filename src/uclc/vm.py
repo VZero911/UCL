@@ -130,6 +130,12 @@ class Interpreter:
             env.define(s.name, self._eval(s.value, env))
         elif isinstance(s, ast.Assign):
             env.set_existing(s.name, self._eval(s.value, env))
+        elif isinstance(s, ast.MemberAssign):
+            obj = self._eval(s.obj, env)
+            if isinstance(obj, UCLInstance):
+                obj.fields[s.name] = self._eval(s.value, env)
+            else:
+                raise UCLRuntimeError(f"member assign on non-object: {type(obj).__name__}")
         elif isinstance(s, ast.Return):
             raise _Return(None if s.value is None else self._eval(s.value, env))
         elif isinstance(s, ast.ExprStmt):
@@ -249,8 +255,7 @@ class Interpreter:
                 fn = self.funcs[method_key]
                 args = [self._eval(a, env) for a in e.args]
                 method_env = Env()
-                for field_name, field_val in obj.fields.items():
-                    method_env.define(field_name, field_val)
+                method_env.define("self", obj)
                 if len(args) != len(fn.params):
                     raise UCLRuntimeError(f"{method_key}: expected {len(fn.params)} args, got {len(args)}")
                 for p, a in zip(fn.params, args):
@@ -409,7 +414,22 @@ class Interpreter:
                     defaults[f.name] = ""
                 else:
                     defaults[f.name] = None
-            return UCLInstance(e.callee, defaults)
+            instance = UCLInstance(e.callee, defaults)
+            init_key = f"{e.callee}.init"
+            if init_key in self.funcs:
+                fn = self.funcs[init_key]
+                args = [self._eval(a, env) for a in e.args]
+                method_env = Env()
+                method_env.define("self", instance)
+                if len(args) != len(fn.params):
+                    raise UCLRuntimeError(f"{init_key}: expected {len(fn.params)} args, got {len(args)}")
+                for p, a in zip(fn.params, args):
+                    method_env.define(p.name, a)
+                try:
+                    self._exec_block(fn.body, method_env)
+                except _Return:
+                    pass
+            return instance
         if e.callee in self.funcs:
             args = [self._eval(a, env) for a in e.args]
             return self._call(self.funcs[e.callee], args)

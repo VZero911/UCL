@@ -205,6 +205,11 @@ class Parser:
             self._expect(T.SEMI)
             return self._span(ast.Assign(tok.value, val), tok)
         expr = self._expr()
+        if self._at(T.ASSIGN) and isinstance(expr, ast.Member):
+            self._advance()
+            val = self._expr()
+            self._expect(T.SEMI)
+            return self._span(ast.MemberAssign(expr.obj, expr.name, val), expr)
         self._expect(T.SEMI)
         node = ast.ExprStmt(expr)
         node.line = expr.line

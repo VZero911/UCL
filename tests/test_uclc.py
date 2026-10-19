@@ -1790,3 +1790,201 @@ def test_opt_native_while_loop():
     }
     """)
     assert rc == 0 and out == ["10"]
+
+
+# -- class / object tests (v1.0) -------------------------------------------
+
+def test_class_default_fields():
+    rc, out = _run_capture("""
+    class Box { width: i32; height: i32; }
+    fn main() { let b = Box(); print(b.width); print(b.height); }
+    """)
+    assert out == ["0", "0"]
+
+
+def test_class_member_assign():
+    rc, out = _run_capture("""
+    class Box { width: i32; height: i32; }
+    fn main() {
+        let b = Box();
+        b.width = 10;
+        b.height = 20;
+        print(b.width);
+        print(b.height);
+    }
+    """)
+    assert out == ["10", "20"]
+
+
+def test_class_method_read_fields():
+    rc, out = _run_capture("""
+    class Pair { x: i32; y: i32; }
+    fn main() {
+        let p = Pair();
+        p.x = 3;
+        p.y = 4;
+        print(p.x + p.y);
+    }
+    """)
+    assert out == ["7"]
+
+
+def test_class_method_with_self():
+    rc, out = _run_capture("""
+    class Counter {
+        count: i32;
+        fn value() -> i32 { return self.count; }
+        fn increment() { self.count = self.count + 1; }
+    }
+    fn main() {
+        let c = Counter();
+        c.increment();
+        c.increment();
+        c.increment();
+        print(c.value());
+    }
+    """)
+    assert out == ["3"]
+
+
+def test_class_init_constructor():
+    rc, out = _run_capture("""
+    class Vec2 {
+        x: f64;
+        y: f64;
+        fn init(x: f64, y: f64) {
+            self.x = x;
+            self.y = y;
+        }
+        fn mag_sq() -> f64 { return self.x * self.x + self.y * self.y; }
+    }
+    fn main() {
+        let v = Vec2(3.0, 4.0);
+        print(v.mag_sq());
+    }
+    """)
+    assert out == ["25.0"]
+
+
+def test_class_method_mutates_fields():
+    rc, out = _run_capture("""
+    class Acc {
+        total: i32;
+        fn init(start: i32) { self.total = start; }
+        fn add(n: i32) { self.total = self.total + n; }
+        fn get() -> i32 { return self.total; }
+    }
+    fn main() {
+        let a = Acc(10);
+        a.add(5);
+        a.add(3);
+        print(a.get());
+    }
+    """)
+    assert out == ["18"]
+
+
+def test_class_multiple_instances():
+    rc, out = _run_capture("""
+    class Box {
+        val: i32;
+        fn init(v: i32) { self.val = v; }
+        fn get() -> i32 { return self.val; }
+    }
+    fn main() {
+        let a = Box(10);
+        let b = Box(20);
+        print(a.get());
+        print(b.get());
+    }
+    """)
+    assert out == ["10", "20"]
+
+
+def test_class_method_with_args():
+    rc, out = _run_capture("""
+    class Math {
+        factor: i32;
+        fn init(f: i32) { self.factor = f; }
+        fn multiply(x: i32) -> i32 { return self.factor * x; }
+    }
+    fn main() {
+        let m = Math(7);
+        print(m.multiply(6));
+    }
+    """)
+    assert out == ["42"]
+
+
+def test_class_string_fields():
+    rc, out = _run_capture("""
+    class Person {
+        name: str;
+        fn init(n: str) { self.name = n; }
+        fn greet() -> str { return "Hello, " + self.name; }
+    }
+    fn main() {
+        let p = Person("Alice");
+        print(p.greet());
+    }
+    """)
+    assert out == ["Hello, Alice"]
+
+
+def test_class_chained_mutations():
+    rc, out = _run_capture("""
+    class Point {
+        x: i32;
+        y: i32;
+        fn init(x: i32, y: i32) { self.x = x; self.y = y; }
+        fn move_by(dx: i32, dy: i32) { self.x = self.x + dx; self.y = self.y + dy; }
+        fn sum() -> i32 { return self.x + self.y; }
+    }
+    fn main() {
+        let p = Point(1, 2);
+        p.move_by(10, 20);
+        p.move_by(100, 200);
+        print(p.sum());
+    }
+    """)
+    assert out == ["333"]
+
+
+def test_class_bool_field():
+    rc, out = _run_capture("""
+    class Toggle {
+        on: bool;
+        fn flip() { if self.on { self.on = false; } else { self.on = true; } }
+        fn status() -> str { if self.on { return "ON"; } return "OFF"; }
+    }
+    fn main() {
+        let t = Toggle();
+        print(t.status());
+        t.flip();
+        print(t.status());
+        t.flip();
+        print(t.status());
+    }
+    """)
+    assert out == ["OFF", "ON", "OFF"]
+
+
+def test_class_ir_member_assign():
+    src = """
+    class Foo { x: i32; }
+    fn main() { let f = Foo(); f.x = 42; }
+    """
+    prog = parse(tokenize(src))
+    ir = lower(prog)
+    ir_text = str(ir)
+    assert "store_field" in ir_text
+
+
+def test_class_example_runs():
+    rc, out = _run_capture(open("examples/classes.ucl").read())
+    assert rc is None or rc == 0
+    assert "3" in out
+    assert "13" in out
+    assert "(3.0, 4.0)" in out
+    assert "25.0" in out
+    assert "(4.0, 3.0)" in out

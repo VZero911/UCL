@@ -1,0 +1,66 @@
+// classes.ucl — Object-oriented programming in UCL
+
+class Counter {
+    count: i32;
+    step: i32;
+
+    fn init(start: i32, step: i32) {
+        self.count = start;
+        self.step = step;
+    }
+
+    fn increment() {
+        self.count = self.count + self.step;
+    }
+
+    fn value() -> i32 {
+        return self.count;
+    }
+
+    fn add(n: i32) {
+        self.count = self.count + n;
+    }
+}
+
+class Point {
+    x: f64;
+    y: f64;
+
+    fn init(x: f64, y: f64) {
+        self.x = x;
+        self.y = y;
+    }
+
+    fn distance_squared() -> f64 {
+        return self.x * self.x + self.y * self.y;
+    }
+
+    fn translate(dx: f64, dy: f64) {
+        self.x = self.x + dx;
+        self.y = self.y + dy;
+    }
+
+    fn to_string() -> str {
+        return "(" + to_str(self.x) + ", " + to_str(self.y) + ")";
+    }
+}
+
+fn main() -> i32 {
+    let c = Counter(0, 1);
+    c.increment();
+    c.increment();
+    c.increment();
+    print(c.value());
+
+    c.add(10);
+    print(c.value());
+
+    let p = Point(3.0, 4.0);
+    print(p.to_string());
+    print(p.distance_squared());
+
+    p.translate(1.0, -1.0);
+    print(p.to_string());
+
+    return 0;
+}

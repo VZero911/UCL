@@ -6,6 +6,19 @@ All notable changes to UCL are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-19
+
+### Added
+- **Object-oriented programming**: full class/object evaluation in the interpreter.
+- **`self` keyword**: methods access and mutate instance fields through `self.field`.
+- **Constructor arguments**: classes with an `init` method accept arguments on construction (`let v = Vec2(3.0, 4.0)`).
+- **Member assignment**: `obj.field = value;` syntax for setting fields from outside the class.
+- **`MemberAssign` AST node**: new node for member assignment, with parser, IR lowering (`store_field`), and type checker support.
+- **Field mutation in methods**: method calls through `self` mutate the actual instance (not a copy).
+- **Multiple instances**: independent object instances with separate field state.
+- `classes.ucl` example demonstrating constructors, methods, self, mutation, and multiple classes.
+- 13 new tests (272 total): default fields, member assign, method with self, init constructor, field mutation, multiple instances, method args, string fields, chained mutations, bool fields, IR store_field, example integration.
+
 ## [0.11.0] - 2026-10-19
 
 ### Added

@@ -82,6 +82,10 @@ class Lowerer:
         elif isinstance(s, ast.Assign):
             t = self._expr(f, s.value)
             f.emit(f"store {s.name}, {t}")
+        elif isinstance(s, ast.MemberAssign):
+            obj_t = self._expr(f, s.obj)
+            val_t = self._expr(f, s.value)
+            f.emit(f"store_field {obj_t}, {s.name}, {val_t}")
         elif isinstance(s, ast.Return):
             if s.value is None:
                 f.emit("ret")

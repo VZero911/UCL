@@ -169,6 +169,9 @@ class Checker:
             self._check_let(s, env)
         elif isinstance(s, ast.Assign):
             self._check_assign(s, env)
+        elif isinstance(s, ast.MemberAssign):
+            self._check_expr(s.obj, env)
+            self._check_expr(s.value, env)
         elif isinstance(s, ast.Return):
             self._check_return(s, env, fn_type)
         elif isinstance(s, ast.ExprStmt):
