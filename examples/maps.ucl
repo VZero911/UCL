@@ -2,16 +2,16 @@
 
 fn main() -> i32 {
     // Create a map
-    let ports = map("pandora_dash", 7776, "pandora_api", 7777, "vite", 7778, "alicehub", 7785);
+    let ports = map("web", 8080, "api", 8000, "vite", 5173, "hub", 9000);
     print("port count:", len(ports));
 
     // Access by key
-    print("pandora api:", get(ports, "pandora_api"));
+    print("api:", get(ports, "api"));
     print("vite:", ports["vite"]);
 
     // Add entries
     set(ports, "ollama", 11434);
-    set(ports, "theseed", 8546);
+    set(ports, "postgres", 5432);
     print("after add:", len(ports));
 
     // Check existence

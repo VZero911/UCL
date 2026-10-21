@@ -34,7 +34,7 @@ fn main() {
     }
 
     // ---- map destructuring ----
-    let config = map("host", "127.0.0.1", "port", 7777);
+    let config = map("host", "127.0.0.1", "port", 8080);
     match config {
         case {"host": h} -> print("host=" + h);
     }
